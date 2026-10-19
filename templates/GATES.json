@@ -1,0 +1,165 @@
+{
+  "schema_version": "2.0",
+  "gates": [
+    {
+      "id": "G01",
+      "name": "来源与复用",
+      "criteria": "",
+      "status": "UNVERIFIED",
+      "required_for_target": true,
+      "scope_basis": "",
+      "reviewer": {
+        "identity": "",
+        "independence": "self_review"
+      },
+      "subject_revision": "",
+      "evidence": [],
+      "blocker": "",
+      "next_action": "Define criteria from project scope and verify actual evidence."
+    },
+    {
+      "id": "G02",
+      "name": "机制完整与准确",
+      "criteria": "",
+      "status": "UNVERIFIED",
+      "required_for_target": true,
+      "scope_basis": "",
+      "reviewer": {
+        "identity": "",
+        "independence": "self_review"
+      },
+      "subject_revision": "",
+      "evidence": [],
+      "blocker": "",
+      "next_action": "Define criteria from project scope and verify actual evidence."
+    },
+    {
+      "id": "G03",
+      "name": "内容与战术覆盖",
+      "criteria": "",
+      "status": "UNVERIFIED",
+      "required_for_target": true,
+      "scope_basis": "",
+      "reviewer": {
+        "identity": "",
+        "independence": "self_review"
+      },
+      "subject_revision": "",
+      "evidence": [],
+      "blocker": "",
+      "next_action": "Define criteria from project scope and verify actual evidence."
+    },
+    {
+      "id": "G04",
+      "name": "资产生产与替换管线",
+      "criteria": "",
+      "status": "UNVERIFIED",
+      "required_for_target": true,
+      "scope_basis": "",
+      "reviewer": {
+        "identity": "",
+        "independence": "self_review"
+      },
+      "subject_revision": "",
+      "evidence": [],
+      "blocker": "",
+      "next_action": "Define criteria from project scope and verify actual evidence."
+    },
+    {
+      "id": "G05",
+      "name": "正式表现与音频 UI",
+      "criteria": "",
+      "status": "UNVERIFIED",
+      "required_for_target": true,
+      "scope_basis": "",
+      "reviewer": {
+        "identity": "",
+        "independence": "self_review"
+      },
+      "subject_revision": "",
+      "evidence": [],
+      "blocker": "",
+      "next_action": "Define criteria from project scope and verify actual evidence."
+    },
+    {
+      "id": "G06",
+      "name": "正常输入流程与平衡",
+      "criteria": "",
+      "status": "UNVERIFIED",
+      "required_for_target": true,
+      "scope_basis": "",
+      "reviewer": {
+        "identity": "",
+        "independence": "self_review"
+      },
+      "subject_revision": "",
+      "evidence": [],
+      "blocker": "",
+      "next_action": "Define criteria from project scope and verify actual evidence."
+    },
+    {
+      "id": "G07",
+      "name": "状态与存档",
+      "criteria": "",
+      "status": "UNVERIFIED",
+      "required_for_target": true,
+      "scope_basis": "",
+      "reviewer": {
+        "identity": "",
+        "independence": "self_review"
+      },
+      "subject_revision": "",
+      "evidence": [],
+      "blocker": "",
+      "next_action": "Define criteria from project scope and verify actual evidence."
+    },
+    {
+      "id": "G08",
+      "name": "目标设备与性能",
+      "criteria": "",
+      "status": "UNVERIFIED",
+      "required_for_target": true,
+      "scope_basis": "",
+      "reviewer": {
+        "identity": "",
+        "independence": "self_review"
+      },
+      "subject_revision": "",
+      "evidence": [],
+      "blocker": "",
+      "next_action": "Define criteria from project scope and verify actual evidence."
+    },
+    {
+      "id": "G09",
+      "name": "包与宿主",
+      "criteria": "",
+      "status": "UNVERIFIED",
+      "required_for_target": true,
+      "scope_basis": "",
+      "reviewer": {
+        "identity": "",
+        "independence": "self_review"
+      },
+      "subject_revision": "",
+      "evidence": [],
+      "blocker": "",
+      "next_action": "Define criteria from project scope and verify actual evidence."
+    },
+    {
+      "id": "G10",
+      "name": "外部发行批准",
+      "criteria": "",
+      "status": "UNVERIFIED",
+      "required_for_target": false,
+      "scope_basis": "",
+      "reviewer": {
+        "identity": "",
+        "independence": "self_review"
+      },
+      "subject_revision": "",
+      "evidence": [],
+      "blocker": "",
+      "next_action": "Define criteria from project scope and verify actual evidence."
+    }
+  ]
+}
