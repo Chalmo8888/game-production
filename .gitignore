@@ -1,0 +1,7 @@
+# Skill repository local-only artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+Thumbs.db
+*.log

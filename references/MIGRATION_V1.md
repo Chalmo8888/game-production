@@ -1,5 +1,7 @@
 # v1 → v3：不重做游戏，只迁移流程
 
+> 当前版本为 v4。v1 项目先按本文迁移到 v3 的记录结构，再用 `project.py migrate` 升级到 v4（见 [MIGRATION_V3](MIGRATION_V3.md)）。文中“START/STAGE/REVIEW”分别对应 v4 的 START_FULL_PIPELINE、STAGE/ART_PRODUCTION、REVIEW_GAME。
+
 v1 将开发/资源合同写给 Cursor，美术/QA 写给 Codex，且若干提示词引用了未配套的任务文件。v2 已删除工具身份分配，提供统一状态和初始化工具。
 
 ## 安全迁移

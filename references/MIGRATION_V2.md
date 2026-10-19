@@ -10,3 +10,5 @@
 6. 检查本机路径、缓存、权限、发布目标，跑 `project.py validate`，再恢复 Agent 执行。
 
 对于全新项目无需迁移，可直接 init。
+
+> 当前版本为 v4：完成以上步骤得到 v3 结构的记录后，再执行 `project.py migrate` 升级到 v4（见 [MIGRATION_V3](MIGRATION_V3.md)）。v4 的 `init` 与 `migrate` 同样会拒绝与旧版 `totop-game-production` 规则并存。

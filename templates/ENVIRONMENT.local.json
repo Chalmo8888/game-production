@@ -1,7 +1,8 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "3.0",
   "device_label": "",
   "os": "not_probed",
+  "probed_utc": "",
   "project_root": "",
   "cache_root": "",
   "tools": {
@@ -18,6 +19,6 @@
   "parallel_browser_limit": 2,
   "retry_same_strategy_limit": 3,
   "notes": [
-    "No credentials. Probe on this device; do not copy previous device assumptions."
+    "No credentials. Probe on this device; do not copy previous device assumptions. This file is ignored by Git."
   ]
 }

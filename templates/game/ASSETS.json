@@ -1,0 +1,6 @@
+{
+  "schema_version": "3.0",
+  "contract_version": "",
+  "status_flow": "planned -> source_generated -> processed -> integrated -> verified (or rejected)",
+  "assets": []
+}

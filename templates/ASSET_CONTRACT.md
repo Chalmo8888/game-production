@@ -5,7 +5,7 @@
 |---|---|---|---|---|---|---|---|---|---|
 
 ## 代表资产试验
-一个单位/角色和一个场景：需求→制作→加工→导入→实机→模拟回归。通过后批量。状态区分 source_only / processed / integrated / verified / rejected。
+一个单位/角色和一个场景：需求→制作→加工→导入→实机→模拟回归。通过后批量。状态区分 planned / source_generated / processed / integrated / verified / rejected（v4 游戏以 `.production/ASSETS.json` 为机器可校验记录；本模板可用于 Base 资产接口或 v3 遗留项目）。
 
 ## 正式资源覆盖
 实际包内必需资源覆盖、占位回退、音效/音乐、字体与 UI。缺工具不是自动 N/A。

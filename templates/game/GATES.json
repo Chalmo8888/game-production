@@ -1,0 +1,20 @@
+{
+  "schema_version": "3.0",
+  "tier": "game",
+  "gates": [
+    {"id": "D01", "name": "游戏策划完成", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "evidence": [], "blocker": "", "next_action": "GAME_DESIGN.md 15 节填写完毕，并转化为配置需求、行为规格和开发任务。"},
+    {"id": "D02", "name": "美术策划与代表资产试制", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "evidence": [], "blocker": "", "next_action": "ART_DIRECTION / ART_ASSET_PLAN / ANIMATION_SPEC 完成，至少一个代表资产在 ASSETS.json 中为 verified。"},
+    {"id": "Q01", "name": "游戏逻辑与机制", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "游戏规则、Base 扩展和游戏专有逻辑有行为测试。"},
+    {"id": "Q02", "name": "内容完整与单位差异", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "策划范围内的关卡/单位/武器/剧情实际存在且作用不同。"},
+    {"id": "Q03", "name": "真实操作通关、地图碰撞与平衡", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "正式入口普通输入通关/失败/重开，多策略多种子，不隐藏失败。"},
+    {"id": "Q04", "name": "美术、动画与视觉一致性", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "运行时连续动作、脚点挂点、风格一致、无静默占位。"},
+    {"id": "Q05", "name": "UI/UX 与音频", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "界面可读不遮挡，音效/音乐实际播放和音量总线。"},
+    {"id": "Q06", "name": "存档与状态", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "刷新/恢复/损坏回退/旧版本/与其他游戏存档隔离。"},
+    {"id": "Q07", "name": "性能与分辨率/目标设备", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "目标设备与多分辨率实测帧时间、内存和负载场景。"},
+    {"id": "Q08", "name": "游戏资源与内容来源许可", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "本游戏所有资产/音频/字体/文本在 RIGHTS_LEDGER 与 ASSETS.json 中有来源和许可。"},
+    {"id": "R01", "name": "构建与包完整性", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "干净构建、包哈希、资源完整、无研究原件/密钥/私有路径。"},
+    {"id": "R02", "name": "目标平台适配", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "读取真实平台规范实测；仅本地候选时 NOT_APPLICABLE 并写依据。"},
+    {"id": "R03", "name": "权利审查就绪", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "Base 代码来源 + 本游戏资源来源记录完整，可交权利人/法务审查。"},
+    {"id": "R04", "name": "公开发布批准", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "external_approval"}, "subject_revision": "", "evidence": [], "blocker": "", "next_action": "仅能由用户/权利人给出并留存批准记录；Agent 不得自我批准。"}
+  ]
+}
