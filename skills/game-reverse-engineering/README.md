@@ -4,6 +4,7 @@
 
 - 规则：[`SKILL.md`](SKILL.md)
 - 启动提示词：[从链接开始](prompts/START.md) · [接管已有工程或 v4 Base](prompts/TAKEOVER.md) · [接续](prompts/RESUME.md)
+- 当前版本 1.1.0：游戏特有能力发现、PARITY / REPLACEMENT / EXTENSION 来源分类、Creator 生产能力测试（视觉差异 + 玩法改动 + 完整循环）、代码指纹绑定的 QA、价值排序（`gre.py next`）、研究预算、超时安全恢复，以及三项独立的权利记录。1.0.0 的记录可以直接读取，`gre.py upgrade` 只增加字段。
 - 验收核心：[能力等价矩阵](references/CAPABILITY_PARITY.md) 与 [Base 验收规则](references/BASE_ACCEPTANCE.md)（Logic Ready → Presentation Ready → Creator Ready，权利另设门禁）
 - 规范：[逆向研究](references/RESEARCH.md) · [复用评估](references/REUSE_ASSESSMENT.md) · [动态行为](references/DYNAMIC_BEHAVIOR.md) · [逻辑重建](references/LOGIC_REBUILD.md) · [2D 表现](references/PRESENTATION_2D.md) · [资源与动画管线](references/ASSET_ANIMATION_PIPELINE.md) · [无人值守与恢复](references/AUTONOMY_RECOVERY.md) · [项目经验](references/LESSONS.md) · [与 v4 的关系](references/V4_INTEGRATION.md)
 

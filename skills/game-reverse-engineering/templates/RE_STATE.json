@@ -1,6 +1,6 @@
 {
   "schema_version": "gre-1.0",
-  "skill_version": "1.0.0",
+  "skill_version": "1.1.0",
   "base_id": "TO_BE_SET",
   "target_level": "CREATOR_READY",
   "core_paths": [],
@@ -24,6 +24,9 @@
   "guards": {
     "research_streak_limit": 6,
     "polish_streak_limit": 5,
-    "same_failure_limit": 3
+    "same_failure_limit": 3,
+    "research_budget_per_item": 3,
+    "neglect_limit": 8,
+    "high_priority_score": 10
   }
 }

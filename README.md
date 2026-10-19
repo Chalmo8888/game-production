@@ -6,7 +6,7 @@
 
 | Skill | 位置 | 版本 | 用途 |
 |---|---|---|---|
-| **game-reverse-engineering** | [`skills/game-reverse-engineering/`](skills/game-reverse-engineering/) | 1.0.0（新增） | 研究参考游戏，交付经过能力等价验证的 2D **Creator Ready Base** |
+| **game-reverse-engineering** | [`skills/game-reverse-engineering/`](skills/game-reverse-engineering/) | 1.1.0（新增） | 研究参考游戏，交付经过能力等价验证的 2D **Creator Ready Base** |
 | **game-production** | 仓库根目录（本页下半部分） | 4.1.0（稳定） | 工作区、版本化 Base、`games/<id>/` 多游戏全流程与门禁 |
 | game-creation-polish | 规划中 | — | 基于 Base 制作游戏与打磨（后续建设） |
 
@@ -41,14 +41,20 @@ python <临时目录>/skills/game-reverse-engineering/scripts/gre.py init --proj
 按 SKILL.md 的 E0–E7 推进，由你一个 Agent 完成全部工作，不需要等待其他 Agent：
 E0 技术调查（包括能否动态运行原作），当天就建立 Base 骨架 → E1 授权与复用判断（REUSE.json、RE01）
 → E2 源码与动态行为研究 → E3 在能力等价矩阵中覆盖全部 15 个能力域（不只是玩法，还包括动画、
-渲染、特效、UI、资源管线和音频）→ E4 逻辑系统 → E5 2D 表现系统 → E6 两套原创测试配置的
-Creator 验证 → E7 报告、交接和冻结 Base 版本。
+渲染、特效、UI、资源管线和音频），并从原版代码、运行行为和资源结构中发现模板之外的游戏特有能力
+→ E4 逻辑系统 → E5 2D 表现系统 → E6 Creator 生产能力测试：两套视觉明显不同的原创配置运行在同一个
+稳定核心上，各自通过配置做出有实际意义的玩法改动，并以正常输入跑通短小完整的循环 → E7 报告、
+交接和冻结 Base 版本。
 
 能合法复用的成熟代码和系统优先直接复用；不能合法复用的才独立实现；已有能力不足的要优化。
+原作细节难以恢复时，评估改用授权明确的成熟组件，不无限研究低收益细节。
 不要求照搬原版源码，也不要做低配模拟品。没有使用权利的反编译代码和原作资源只放在被忽略的
 research-private/ 中研究，不进入 Base。研究必须服务于矩阵中的缺口，并设时间盒。
-只有带测试、运行时录制或测量证据的 VERIFIED 才算完成，只有接口或文档的不算。
-Logic Ready ≠ Presentation Ready ≠ Creator Ready；来源与商业许可另设门禁，技术测试不能使其通过。
+只有带测试、运行时录制或测量证据、并绑定当前代码的 VERIFIED 才算完成，只有接口或文档的不算。
+如实标注能力来源：PARITY（有原版证据）/ REPLACEMENT（不同的合规实现）/ EXTENSION（原创扩展）；
+原版行为不明确时不得宣称 PARITY。每轮用 gre.py next 选择价值最高的缺口，不在高优先级缺口未完成时
+连续打磨。Logic Ready ≠ Presentation Ready ≠ Creator Ready；第三方代码许可、原作素材与具体表达的
+使用权、用户公开发布批准分别记录，技术测试不能使其通过，也不宣称零版权风险。
 
 【无人值守执行规则】
 开始调查并执行，直到达到当前授权范围内可验证的交付目标，或遇到无法自行解决的真实外部阻断。
@@ -62,11 +68,12 @@ Logic Ready ≠ Presentation Ready ≠ Creator Ready；来源与商业许可另�
 本次只交付研究和 Base，不制作游戏。在稳定检查点创建本地 Git commit。未经明确授权，不 push、
 不公开部署、不付费、不上传研究原件或原作资源、不删除无关文件。
 
-最终报告：Base 位置与版本、证据支持的交付等级、能力等价矩阵报告路径、主要差异与静态证据项、
-复用与隔离情况、两套测试配置、权利状态、未完成项和下一步。现在开始实际工作，不要只回复计划。
+最终报告：Base 位置与版本、证据支持的交付等级、能力等价矩阵报告路径、游戏特有能力、
+PARITY/REPLACEMENT/EXTENSION 统计、主要差异与静态证据项、复用与隔离情况、两套测试配置、
+权利状态、未完成项和下一步。现在开始实际工作，不要只回复计划。
 ```
 
-**交付等级**：Logic Ready（L1–L6 玩法、控制、AI、武器、关卡、存档 UI 全部验证）→ Presentation Ready（P1–P8 图集、逐帧/拆件/骨骼动画、状态与事件、分层渲染、特效阴影、资源管线、音画同步、性能全部有运行时或测量证据）→ Creator Ready（两套差异明显的原创测试配置，在同一个未修改的引擎核心上替换角色、动画、单位、地图和视觉风格）。来源审查与商业发行许可单独记录，技术测试不能使其通过。
+**交付等级**：Logic Ready（L1–L6 玩法、控制、AI、武器、关卡、存档 UI 全部验证）→ Presentation Ready（P1–P8 图集、逐帧/拆件/骨骼动画、状态与事件、分层渲染、特效阴影、资源管线、音画同步、性能全部有运行时或测量证据）→ Creator Ready（Base 的生产能力测试：两套视觉明显不同的原创配置运行在同一个稳定核心上，可以共用公共字体和基础资源；各自通过配置或扩展接口做出有实际意义的玩法改动，并以正常输入跑通短小完整的游戏循环。只换图片不算）。能力来源分为 PARITY / REPLACEMENT / EXTENSION，模板之外的游戏特有能力要主动发现。第三方代码许可、原作素材与具体表达的使用权、用户发布批准分别记录，技术测试不能使其通过。
 
 **其他入口**：[接管已有工程或 v4 Base](skills/game-reverse-engineering/prompts/TAKEOVER.md) · [跨会话/设备/Agent 接续](skills/game-reverse-engineering/prompts/RESUME.md) · [能力等价矩阵规则](skills/game-reverse-engineering/references/CAPABILITY_PARITY.md) · [三个实际项目的经验](skills/game-reverse-engineering/references/LESSONS.md)
 

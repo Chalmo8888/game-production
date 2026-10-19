@@ -11,9 +11,11 @@
    以文件为准，不依赖旧聊天：检查点、未关闭任务、STALLED 警告、等级与缺口、分工、Git 状态。
 3. 确认上一位写入者已经交接，不覆盖本地改动。换设备时运行 gre.py env，重新安装依赖，
    研究原件（research-private/）缺失时按 BASE_HANDOFF 的说明补齐或继续不依赖它们的工作。
-4. 用 gre.py assign --agent <你的标签> --scope <本次范围> 记录分工；处理遗留的 ACTIVE 任务
-   （确认进程状态后重跑，或记为 failed/blocked）。
-5. 先跑 Base 的构建和测试，再从检查点的下一步或 status 列出的第一个缺口继续。
+4. 用 gre.py assign --agent <你的标签> --scope <本次范围> 记录分工；处理遗留的 ACTIVE 任务：确认进程状态后，
+   用 gre.py task recover --id <任务> --recover-action restart|abandon --summary "..." 安全关闭或重启，
+   只结束该任务记录的进程。提示缺少新版本字段时运行 gre.py upgrade（只增加字段）。
+5. 先跑 Base 的构建和测试；status 中列为“过期”的条目说明代码改过，要重新验证。然后从检查点的
+   下一步或 gre.py next 排名第一的缺口继续。
 
 【无人值守执行规则】
 开始调查并执行，直到达到当前授权范围内可验证的交付目标，或遇到无法自行解决的真实外部阻断。

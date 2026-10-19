@@ -22,6 +22,8 @@ if V4_SCRIPT.is_file():
     v4 = importlib.util.module_from_spec(v4_spec)
     v4_spec.loader.exec_module(v4)
 
+VISUALS = ("hero.png", "enemy.png", "map.png", "ui.png", "fx.png")
+
 
 def tree(folder: Path) -> dict:
     return {p.relative_to(folder).as_posix(): gre.digest(p) for p in sorted(folder.rglob("*")) if p.is_file()}
@@ -61,37 +63,60 @@ class Fixture(unittest.TestCase):
         gre.gate_set(self.ctx(), "RE01", "PASS", criteria="all modules decided", reviewer="fixture", subject="rev-1",
                      evidence="qa/re01.md")
 
-    def verify(self, item_id, approach="ADAPT", modules=("engine-own",), visual=False):
+    def discover_all(self):
+        for source in gre.DISCOVERY_SOURCES:
+            path = self.write("research/discovery-%s.md" % source, "reviewed %s for unique mechanics\n" % source)
+            gre.discover(self.ctx(), source, "DONE", evidence=path, observed="no further unique mechanics")
+
+    def verify(self, item_id, approach="ADAPT", modules=("engine-own",), visual=False, cls="PARITY"):
         ref = self.write("research/%s-capture.txt" % item_id, "original runtime capture %s\n" % item_id)
-        test = self.write("qa/%s-test.log" % item_id, "test passed %s\n" % item_id)
+        if visual:
+            proof, kind, observed = self.write("qa/%s-frames.png" % item_id, b"frames " + item_id.encode()), "measurement", "foot drift <= 1px"
+        else:
+            proof, kind, observed = self.write("qa/%s-test.log" % item_id, "test passed %s\n" % item_id), "test", "behavior matches"
         gre.parity_set(self.ctx(), item_id, original_level="VERIFIED", original_ref=ref, ref_kind="runtime-capture",
                        approach=approach, modules=list(modules) if approach in ("REUSE", "ADAPT") else [],
-                       evidence=test, kind="test", observed="behavior matches", reusable=True)
-        if visual:
-            capture = self.write("qa/%s-frames.png" % item_id, b"frames " + item_id.encode())
-            gre.parity_set(self.ctx(), item_id, evidence=capture, kind="measurement", observed="foot drift <= 1px")
-        gre.parity_set(self.ctx(), item_id, status="VERIFIED")
+                       evidence=proof, kind=kind, observed=observed, reusable=True, capability_class=cls, status="VERIFIED")
 
     def verify_group(self, group):
         for item in self.ctx().load("PARITY.json")["items"]:
-            if gre.DOMAIN_GROUP[item["domain"]] == group:
+            if gre.DOMAIN_GROUP[item["domain"]] == group and item.get("scope", "core") != "excluded":
                 self.verify(item["id"], visual=(group == "presentation"))
 
-    def probe(self, pid, seed):
+    def logic_ready(self):
+        self.own_engine_reuse()
+        self.discover_all()
+        self.verify_group("logic")
+
+    def probe(self, pid, seed, shared_from=None, share_visuals=0, gameplay=True, loop=True,
+              gameplay_items=("L4-01", "C1-01"), loop_input="normal"):
         configs = self.write("probes/%s/config.json" % pid, json.dumps({"theme": seed}))
+        rules = self.write("probes/%s/rules.json" % pid, json.dumps({"weapon": "bouncing-" + seed, "waves": len(seed)}))
         assets = "probes/%s/assets" % pid
-        self.write(assets + "/hero.png", b"hero-" + seed.encode())
-        self.write(assets + "/map.png", b"map-" + seed.encode())
+        for index, name in enumerate(VISUALS):
+            if shared_from and index < share_visuals:
+                shutil.copy(str(self.root / ("probes/%s/assets/%s" % (shared_from, name))), str(self.root / self.write(assets + "/" + name)))
+            else:
+                self.write(assets + "/" + name, ("%s-%s" % (name, seed)).encode())
+        self.write("common/fonts/pixel.ttf", b"shared open font")
         evidence = {}
         for category in gre.PROBE_CATEGORIES:
-            path = self.write("qa/probes/%s-%s.png" % (pid, category), b"%s-%s-%s" % (pid.encode(), category.encode(), seed.encode()))
+            path = self.write("qa/probes/%s-%s.png" % (pid, category), ("%s-%s-%s" % (pid, category, seed)).encode())
             evidence[category] = [(path, "runtime-capture")]
-        return gre.probe_record(self.ctx(), pid, "原创测试配置 " + seed, [configs], [assets], evidence)
+        messages = gre.probe_record(self.ctx(), pid, "原创测试配置 " + seed, [configs], [assets], evidence,
+                                    shared=["common/fonts"])
+        if gameplay:
+            clip = self.write("qa/probes/%s-gameplay.mp4" % pid, ("gameplay-%s" % seed).encode())
+            messages += gre.probe_gameplay(self.ctx(), pid, "弹跳武器与波次节奏 " + seed, list(gameplay_items), [rules], [(clip, "recording")])
+        if loop:
+            run = self.write("qa/probes/%s-loop.mp4" % pid, ("loop-%s" % seed).encode())
+            messages += gre.probe_loop(self.ctx(), pid, ["start", "play", "win", "result", "restart"], loop_input, [(run, "recording")])
+        return messages
 
     def make_creator_ready(self):
-        self.own_engine_reuse()
-        for group in ("logic", "presentation", "creator"):
-            self.verify_group(group)
+        self.logic_ready()
+        self.verify_group("presentation")
+        self.verify_group("creator")
         self.probe("probe-a", "冰原像素风")
         self.probe("probe-b", "沙漠水彩风")
 
@@ -141,8 +166,7 @@ class StartAndTakeoverTest(Fixture):
     def test_v4_project_migration_keeps_v4_records(self):
         self.write("engine/core/sim.ts", "export const step = 1;\n")
         v4.init_workspace(self.root, name="v4 studio", target="full_pipeline")
-        ws = v4.Workspace(self.root)
-        v4.base_register(ws, "core", "1.0.0", "engine", "Core")
+        v4.base_register(v4.Workspace(self.root), "core", "1.0.0", "engine", "Core")
         v4.game_create(v4.Workspace(self.root), "game-01", "core")
         before = {k: v for k, v in tree(self.root).items() if not k.startswith(".production/local/")}
         messages = gre.init(self.root, "core", "9.9.9", "", ["engine/core"], [])
@@ -152,7 +176,7 @@ class StartAndTakeoverTest(Fixture):
             if path in ("AGENTS.md", ".gitignore"):
                 continue
             self.assertEqual(after.get(path), value, path)
-        self.assertTrue((self.root / "AGENTS.md").read_text(encoding="utf-8").count(v4.AGENTS_V4[0]) == 1)
+        self.assertEqual((self.root / "AGENTS.md").read_text(encoding="utf-8").count(v4.AGENTS_V4[0]), 1)
         self.assertEqual(self.ctx().current_version(), "1.0.0")
         self.assertEqual(v4.validate_workspace(self.root)[0], [])
         self.assertEqual(self.errors(), [])
@@ -164,6 +188,101 @@ class StartAndTakeoverTest(Fixture):
             self.assertEqual((SKILL_ROOT / "templates/v4" / relative).read_bytes(),
                              (REPO_ROOT / "templates" / relative).read_bytes(), relative)
 
+    def test_records_from_1_0_0_stay_readable_and_upgrade_is_additive(self):
+        self.start()
+        self.own_engine_reuse()
+        ctx = self.ctx()
+        # Rebuild what a 1.0.0 workspace looked like: no discovery, no RE03, no new item fields.
+        parity = ctx.load("PARITY.json")
+        parity.pop("discovery")
+        for item in parity["items"]:
+            for key in ("scope", "scope_reason", "origin", "capability_class", "code_paths", "value", "design_note"):
+                item.pop(key)
+            item["importance"] = "core"
+        ctx.save("PARITY.json", parity)
+        gates = ctx.load("GATES.json")
+        gates["gates"] = [g for g in gates["gates"] if g["id"] != "RE03"]
+        ctx.save("GATES.json", gates)
+        state = ctx.load("RE_STATE.json")
+        state["guards"] = {"research_streak_limit": 6, "polish_streak_limit": 5, "same_failure_limit": 3}
+        state.update(claimed_level="LOGIC_READY", claimed_for_version="0.1.0",
+                     level_history=[{"utc": gre.now_utc(), "level": "LOGIC_READY", "base_version": "0.1.0"}])
+        ctx.save("RE_STATE.json", state)
+        errors, warnings = gre.validate(self.root)
+        self.assertEqual(errors, [])
+        self.assertTrue(any("gre.py upgrade" in w for w in warnings))
+        self.assertTrue(any("claim made under gre 1.0.0 rules" in w for w in warnings))
+        self.assertIn("Base core@0.1.0", gre.status_report(self.ctx()))
+        before_items = self.ctx().load("PARITY.json")["items"]
+        gre.upgrade(self.ctx())
+        after = self.ctx()
+        self.assertEqual(after.load("PARITY.json")["items"], before_items)
+        self.assertIn("RE03", [g["id"] for g in after.load("GATES.json")["gates"]])
+        self.assertIn("discovery", after.load("PARITY.json"))
+        self.assertEqual(after.load("RE_STATE.json")["guards"]["research_budget_per_item"], 3)
+        self.assertEqual(self.errors(), [])
+
+
+class DiscoveryAndClassTest(Fixture):
+    def test_game_specific_capability_beyond_the_template(self):
+        self.start()
+        self.logic_ready()
+        gre.set_level(self.ctx(), "LOGIC_READY")
+        with self.assertRaisesRegex(ValueError, "--source"):
+            gre.parity_add(self.ctx(), "L5-04", "L5", "时间回溯关卡机制")
+        self.write("research-private/rewind.txt", "rewind buffer in level script\n")
+        gre.parity_add(self.ctx(), "L5-04", "L5", "时间回溯关卡机制", source="code", evidence="research-private/rewind.txt",
+                       kind="static-analysis", observed="level script keeps a 5s state ring buffer", local=True)
+        gre.discover(self.ctx(), "code", "DONE", evidence=self.write("research/code-review-2.md", "found rewind\n"), findings=["L5-04"])
+        problems = gre.level_problems(self.ctx(), "LOGIC_READY", gre.snapshot(self.ctx()))
+        self.assertTrue(any(p.startswith("L5-04") for p in problems))
+        self.assertTrue(any("Claimed LOGIC_READY" in e for e in self.errors()))
+        self.assertIn("discovered (game-specific): 1 L5-04", gre.status_report(self.ctx()))
+        self.verify("L5-04")
+        gre.set_level(self.ctx(), "LOGIC_READY")
+        with self.assertRaisesRegex(ValueError, "UNAVAILABLE needs a reason"):
+            gre.discover(self.ctx(), "runtime", "UNAVAILABLE")
+        gre.discover(self.ctx(), "runtime", "UNAVAILABLE", reason="player stops at the loading bar; see TECH_SURVEY §3")
+
+    def test_scope_changes_and_exclusions_need_reasons(self):
+        self.start()
+        with self.assertRaisesRegex(ValueError, "scope_reason"):
+            gre.parity_set(self.ctx(), "L6-02", scope="excluded")
+        gre.parity_set(self.ctx(), "L6-02", scope="excluded", scope_reason="original online leaderboard; out of the user's offline Base scope")
+        with self.assertRaisesRegex(ValueError, "downgraded"):
+            gre.parity_set(self.ctx(), "L1-03", scope="legacy")
+        gre.parity_set(self.ctx(), "L1-03", scope="legacy", scope_reason="old save-compatible RNG kept only for replays")
+        self.logic_ready()
+        self.assertEqual(gre.derive_level(self.ctx()), "LOGIC_READY")
+
+    def test_unknown_original_allows_extension_but_never_parity(self):
+        self.start()
+        self.own_engine_reuse()
+        with self.assertRaisesRegex(ValueError, "PARITY needs original evidence"):
+            gre.parity_set(self.ctx(), "L4-01", original_level="UNKNOWN", capability_class="PARITY")
+        with self.assertRaisesRegex(ValueError, "explicitly marked EXTENSION"):
+            gre.parity_set(self.ctx(), "L4-01", original_level="UNKNOWN", approach="REIMPLEMENT", status="IMPLEMENTED")
+        inferred = self.write("research/L4-02.txt", "community wiki guess\n")
+        with self.assertRaisesRegex(ValueError, "PARITY needs original evidence"):
+            gre.parity_set(self.ctx(), "L4-02", original_level="INFERRED", original_ref=inferred, gap="never observed in play",
+                           capability_class="PARITY")
+        with self.assertRaisesRegex(ValueError, "REPLACEMENT needs differences"):
+            gre.parity_set(self.ctx(), "L4-02", original_level="INFERRED", original_ref=inferred, gap="never observed in play",
+                           capability_class="REPLACEMENT", approach="REIMPLEMENT", status="IMPLEMENTED")
+        gre.parity_set(self.ctx(), "L4-02", original_level="INFERRED", original_ref=inferred, gap="never observed in play",
+                       capability_class="REPLACEMENT", approach="REIMPLEMENT",
+                       differences="uses an open-source tween library instead of the original curve", status="IMPLEMENTED")
+        test = self.write("qa/L4-01.log", "weapon table tests\n")
+        gre.parity_set(self.ctx(), "L4-01", original_level="UNKNOWN", capability_class="EXTENSION", approach="REIMPLEMENT",
+                       design_note="original weapon table is unknown; data-driven weapon schema designed for future games",
+                       evidence=test, kind="test", observed="schema loads 12 weapons", reusable=True, status="VERIFIED")
+        status = gre.status_report(self.ctx())
+        self.assertIn("EXTENSION=1", status)
+        self.assertIn("REPLACEMENT=1", status)
+        report = self.root / gre.write_report(self.ctx())[0].split(": ")[1]
+        self.assertIn("EXTENSION（原创扩展，不是逆向成果）1", report.read_text(encoding="utf-8"))
+        self.assertEqual(self.errors(), [])
+
 
 class ReuseAndEvidenceTest(Fixture):
     def test_legally_reusable_code_path(self):
@@ -171,11 +290,15 @@ class ReuseAndEvidenceTest(Fixture):
         with self.assertRaisesRegex(ValueError, "license_evidence"):
             gre.reuse_set(ctx, "tween-lib", source_kind="open_source", license_="MIT", decision="KEEP", base_paths=["engine/core"])
         self.write("third_party/tween/LICENSE", "MIT License ...\n")
+        with self.assertRaisesRegex(ValueError, "execution_note"):
+            gre.reuse_set(self.ctx(), "tween-lib", source_kind="open_source", license_="MIT", decision="KEEP",
+                          base_paths=["engine/core"], evidence="third_party/tween/LICENSE", execution="reviewed")
         gre.reuse_set(self.ctx(), "tween-lib", origin="https://example.com/tween", source_kind="open_source", license_="MIT",
-                      decision="KEEP", base_paths=["engine/core"], evidence="third_party/tween/LICENSE")
+                      decision="KEEP", base_paths=["engine/core"], evidence="third_party/tween/LICENSE",
+                      execution="reviewed", execution_note="no install scripts; npm --ignore-scripts; source read before build")
         self.verify("P2-03", approach="REUSE", modules=("tween-lib",), visual=True)
         item = next(i for i in self.ctx().load("PARITY.json")["items"] if i["id"] == "P2-03")
-        self.assertEqual((item["status"], item["approach"]), ("VERIFIED", "REUSE"))
+        self.assertEqual((item["status"], item["approach"], item["capability_class"]), ("VERIFIED", "REUSE", "PARITY"))
         self.assertEqual(self.errors(), [])
 
     def test_code_that_cannot_be_legally_reused(self):
@@ -188,14 +311,19 @@ class ReuseAndEvidenceTest(Fixture):
         with self.assertRaisesRegex(ValueError, "overlaps Base core"):
             gre.reuse_set(self.ctx(), "orig-player", source_kind="original_decompiled", decision="QUARANTINE",
                           research_paths=["engine/core/legacy"])
+        with self.assertRaisesRegex(ValueError, "never or sandboxed"):
+            gre.reuse_set(self.ctx(), "orig-player", source_kind="original_decompiled", decision="QUARANTINE",
+                          research_paths=["research-private/decompiled"], execution="reviewed", execution_note="ran it")
         gre.reuse_set(self.ctx(), "orig-player", source_kind="original_decompiled", decision="QUARANTINE",
-                      research_paths=["research-private/decompiled"])
+                      research_paths=["research-private/decompiled"], execution="sandboxed",
+                      execution_note="offline VM without credentials")
         ref = self.write("research/L2-01-capture.txt", "jump arc capture\n")
         with self.assertRaisesRegex(ValueError, "cannot reuse module orig-player"):
             gre.parity_set(self.ctx(), "L2-01", approach="ADAPT", modules=["orig-player"], original_level="VERIFIED",
                            original_ref=ref, ref_kind="recording", status="IMPLEMENTED")
         gre.parity_set(self.ctx(), "L2-01", approach="REIMPLEMENT", modules=[], research_basis=["orig-player"],
-                       original_level="VERIFIED", original_ref=ref, ref_kind="recording", status="IMPLEMENTED")
+                       original_level="VERIFIED", original_ref=ref, ref_kind="recording", capability_class="PARITY",
+                       status="IMPLEMENTED")
         self.assertEqual(self.errors(), [])
 
     def test_static_only_evidence_when_original_cannot_run(self):
@@ -205,14 +333,11 @@ class ReuseAndEvidenceTest(Fixture):
             gre.parity_set(self.ctx(), "L3-02", original_level="STATIC_ONLY", original_ref=static, approach="REIMPLEMENT",
                            status="IMPLEMENTED")
         gre.parity_set(self.ctx(), "L3-02", original_level="STATIC_ONLY", original_ref=static, approach="REIMPLEMENT",
-                       gap="player cannot load the SWF; phase timings unconfirmed, tuned by recording later", status="IMPLEMENTED")
+                       gap="player cannot load the SWF; phase timings unconfirmed, tuned by recording later",
+                       capability_class="PARITY", status="IMPLEMENTED")
         with self.assertRaisesRegex(ValueError, "dynamic evidence"):
             gre.parity_set(self.ctx(), "L3-01", original_level="VERIFIED", original_ref=static, ref_kind="static-analysis",
                            approach="REIMPLEMENT", status="IMPLEMENTED")
-        with self.assertRaisesRegex(ValueError, "UNKNOWN"):
-            gre.parity_set(self.ctx(), "L4-01", original_level="UNKNOWN", approach="REIMPLEMENT", status="IMPLEMENTED")
-        gre.parity_set(self.ctx(), "L4-01", original_level="UNKNOWN", approach="IMPROVE",
-                       gap="original weapon table unknown; designed independently", status="IMPLEMENTED")
         self.write("research-private/raw-dump.bin", b"local only")
         gre.parity_set(self.ctx(), "L1-01", original_ref="research-private/raw-dump.bin", ref_local=True, ref_kind="trace")
         (self.root / "research-private/raw-dump.bin").unlink()
@@ -252,6 +377,9 @@ class LevelTest(Fixture):
             gre.set_level(self.ctx(), "LOGIC_READY")
         self.own_engine_reuse()
         self.verify_group("logic")
+        with self.assertRaisesRegex(ValueError, "discovery"):
+            gre.set_level(self.ctx(), "LOGIC_READY")
+        self.discover_all()
         gre.set_level(self.ctx(), "LOGIC_READY")
         self.assertEqual(gre.derive_level(self.ctx()), "LOGIC_READY")
         with self.assertRaisesRegex(ValueError, "Cannot claim PRESENTATION_READY"):
@@ -266,13 +394,13 @@ class LevelTest(Fixture):
                            approach="REIMPLEMENT", evidence=unit, kind="test", observed="ok", status="VERIFIED")
         state = self.ctx().load("RE_STATE.json")
         state["claimed_level"] = "PRESENTATION_READY"
+        state["level_history"].append({"utc": gre.now_utc(), "level": "PRESENTATION_READY", "skill_version": gre.SKILL_VERSION})
         self.ctx().save("RE_STATE.json", state)
         self.assertTrue(any("Claimed PRESENTATION_READY" in e for e in self.errors()))
 
     def test_presentation_domain_cannot_be_skipped_entirely(self):
         self.start()
-        self.own_engine_reuse()
-        self.verify_group("logic")
+        self.logic_ready()
         for item in self.ctx().load("PARITY.json")["items"]:
             if item["domain"] == "P5":
                 gre.parity_set(self.ctx(), item["id"], status="NOT_APPLICABLE", approach="OMIT", na_basis="claimed unnecessary")
@@ -281,11 +409,30 @@ class LevelTest(Fixture):
         problems = gre.level_problems(self.ctx(), "PRESENTATION_READY", gre.snapshot(self.ctx()))
         self.assertTrue(any("domain P5 needs at least one VERIFIED" in p for p in problems))
 
-    def test_creator_ready_needs_two_distinct_probes_on_unchanged_core(self):
+    def test_core_change_invalidates_related_qa(self):
         self.start()
-        self.own_engine_reuse()
-        for group in ("logic", "presentation", "creator"):
-            self.verify_group(group)
+        self.write("engine/core/rules/rules.ts", "export const lives = 3;\n")
+        self.logic_ready()
+        gre.parity_set(self.ctx(), "L1-01", code_paths=["engine/core/rules"])
+        self.verify("L1-01")
+        gre.set_level(self.ctx(), "LOGIC_READY")
+        self.write("engine/core/sim.ts", "export const step = 2; // physics rewrite\n")
+        self.assertEqual(gre.derive_level(self.ctx()), "NONE")
+        self.assertTrue(any("Claimed LOGIC_READY" in e for e in self.errors()))
+        self.assertIn("stale", gre.status_report(self.ctx()))
+        snapshot = gre.snapshot(self.ctx())
+        l101 = next(i for i in snapshot["parity"]["items"] if i["id"] == "L1-01")
+        l201 = next(i for i in snapshot["parity"]["items"] if i["id"] == "L2-01")
+        self.assertIsNone(gre.item_counts(self.ctx(), l101, "0.1.0", snapshot["core"]), "unrelated code change keeps scoped QA valid")
+        self.assertTrue(gre.item_counts(self.ctx(), l201, "0.1.0", snapshot["core"]).startswith("stale"))
+        self.verify_group("logic")
+        gre.set_level(self.ctx(), "LOGIC_READY")
+
+    def test_creator_ready_needs_distinct_visuals_gameplay_and_loop_on_one_core(self):
+        self.start()
+        self.logic_ready()
+        self.verify_group("presentation")
+        self.verify_group("creator")
         gre.set_level(self.ctx(), "PRESENTATION_READY")
         self.probe("probe-a", "冰原像素风")
         with self.assertRaisesRegex(ValueError, "valid: 1"):
@@ -293,37 +440,93 @@ class LevelTest(Fixture):
         shutil.copytree(str(self.root / "probes/probe-a"), str(self.root / "probes/probe-copy"))
         evidence = {c: [("qa/probes/probe-a-%s.png" % c, "runtime-capture")] for c in gre.PROBE_CATEGORIES}
         gre.probe_record(self.ctx(), "probe-copy", "copy", ["probes/probe-copy/config.json"], ["probes/probe-copy/assets"], evidence)
+        gre.probe_gameplay(self.ctx(), "probe-copy", "same", ["L4-01"], ["probes/probe-copy/rules.json"], [("qa/probes/probe-a-gameplay.mp4", "recording")])
+        gre.probe_loop(self.ctx(), "probe-copy", gre.LOOP_STEPS, "normal", [("qa/probes/probe-a-loop.mp4", "recording")])
         problems = gre.level_problems(self.ctx(), "CREATOR_READY", gre.snapshot(self.ctx()))
-        self.assertTrue(any("identical" in p for p in problems))
+        self.assertTrue(any("visual assets are identical" in p for p in problems))
+        self.assertTrue(any("gameplay configurations are identical" in p for p in problems))
         probes = self.ctx().load("PROBES.json")
         probes["probes"] = [p for p in probes["probes"] if p["id"] != "probe-copy"]
         self.ctx().save("PROBES.json", probes)
         self.probe("probe-b", "沙漠水彩风")
         gre.set_level(self.ctx(), "CREATOR_READY")
         self.assertEqual(self.errors(strict=True), [])
-        # Rewriting the core after the probes invalidates the Creator claim.
         self.write("engine/core/sim.ts", "export const step = 2; // per-theme hack\n")
         self.assertTrue(any("Claimed CREATOR_READY" in e for e in self.errors()))
+        snapshot = gre.snapshot(self.ctx())
+        probe_problems, valid = gre.probe_errors(self.ctx(), snapshot["probes"], snapshot)
+        self.assertEqual(valid, [], "probes recorded on the old core are no longer valid")
+        self.assertTrue(any("core fingerprint differs" in p for p in probe_problems))
 
-    def test_rights_are_separate_from_technical_levels(self):
+    def test_visual_configs_may_share_common_resources_but_not_most_visuals(self):
+        self.start()
+        self.make_creator_ready()
+        self.assertEqual(gre.derive_level(self.ctx()), "CREATOR_READY")
+        probe = next(p for p in self.ctx().load("PROBES.json")["probes"] if p["id"] == "probe-b")
+        self.assertEqual(len(probe["shared_files"]), 1, "the common font is shared and allowed")
+        self.probe("probe-b", "沙漠水彩风", shared_from="probe-a", share_visuals=1)
+        self.assertEqual(gre.derive_level(self.ctx()), "CREATOR_READY", "20% shared visuals is within the limit")
+        self.probe("probe-b", "沙漠水彩风", shared_from="probe-a", share_visuals=2)
+        problems = gre.level_problems(self.ctx(), "CREATOR_READY", gre.snapshot(self.ctx()))
+        self.assertTrue(any("40% of visual assets are identical" in p for p in problems))
+
+    def test_image_swap_without_gameplay_change_is_not_production_capability(self):
+        self.start()
+        self.logic_ready()
+        self.verify_group("presentation")
+        self.verify_group("creator")
+        self.probe("probe-a", "冰原像素风", gameplay=False)
+        self.probe("probe-b", "沙漠水彩风", gameplay=False)
+        problems = gre.level_problems(self.ctx(), "CREATOR_READY", gre.snapshot(self.ctx()))
+        self.assertTrue(any("swapping images alone" in p for p in problems))
+        self.assertIn("visual-only (not production evidence): probe-a, probe-b", gre.status_report(self.ctx()))
+        messages = self.probe("probe-a", "冰原像素风", gameplay_items=("P1-01",))
+        self.assertTrue(any("must change a gameplay mechanic" in m for m in messages))
+        messages = self.probe("probe-b", "沙漠水彩风", loop_input="debug")
+        self.assertTrue(any("normal input" in m for m in messages))
+        with self.assertRaisesRegex(ValueError, "Cannot claim CREATOR_READY"):
+            gre.set_level(self.ctx(), "CREATOR_READY")
+
+    def test_probe_content_must_not_come_from_quarantined_research(self):
+        self.start()
+        gre.reuse_set(self.ctx(), "orig-art", source_kind="original_decompiled", decision="QUARANTINE",
+                      research_paths=["probes/ripped"], execution="never")
+        self.write("probes/ripped/hero.png", b"original sprite")
+        self.write("probes/x/config.json", "{}")
+        evidence = {c: [(self.write("qa/x-%s.png" % c, c.encode()), "runtime-capture")] for c in gre.PROBE_CATEGORIES}
+        messages = gre.probe_record(self.ctx(), "probe-x", "x", ["probes/x/config.json"], ["probes/ripped"], evidence)
+        self.assertTrue(any("quarantined research material" in m for m in messages))
+
+    def test_rights_are_separate_and_user_approval_does_not_replace_rights_holder(self):
         self.start()
         self.make_creator_ready()
         gre.set_level(self.ctx(), "CREATOR_READY")
-        self.assertIn("source review (v4 B02)=UNVERIFIED, commercial permission (RE02)=UNVERIFIED", gre.status_report(self.ctx()))
+        status = gre.status_report(self.ctx())
+        self.assertIn("original assets/expression rights (RE03)=UNVERIFIED", status)
+        self.assertIn("release rights record INCOMPLETE", status)
+        self.assertIn("residual rights risk is never zero", status)
         self.write("qa/self-approval.md", "agent thinks it is fine\n")
         with self.assertRaisesRegex(ValueError, "external_approval"):
-            gre.gate_set(self.ctx(), "RE02", "PASS", criteria="commercial use", reviewer="agent", subject="1.0.0",
-                         evidence="qa/self-approval.md")
-        self.write("qa/owner-approval.md", "signed approval from the rights holder\n")
-        gre.gate_set(self.ctx(), "RE02", "PASS", criteria="commercial use", reviewer="rights holder",
-                     independence="external_approval", subject="1.0.0", evidence="qa/owner-approval.md")
+            gre.gate_set(self.ctx(), "RE02", "PASS", criteria="publish", reviewer="agent", subject="0.1.0",
+                         evidence="qa/self-approval.md", role="user")
+        self.write("qa/user-approval.md", "user approves public release\n")
+        with self.assertRaisesRegex(ValueError, "does not replace the original rights holder"):
+            gre.gate_set(self.ctx(), "RE03", "PASS", criteria="original sprites", reviewer="the user",
+                         independence="external_approval", subject="0.1.0", evidence="qa/user-approval.md", role="user")
+        gre.gate_set(self.ctx(), "RE02", "PASS", criteria="publish", reviewer="the user", independence="external_approval",
+                     subject="0.1.0", evidence="qa/user-approval.md", role="user")
+        self.assertIn("release rights record INCOMPLETE", gre.status_report(self.ctx()))
+        self.write("qa/owner-grant.md", "signed grant from the original rights holder\n")
+        gre.gate_set(self.ctx(), "RE03", "PASS", criteria="original sprites", reviewer="rights holder",
+                     independence="external_approval", subject="0.1.0", evidence="qa/owner-grant.md", role="rights_holder")
         self.assertEqual(gre.derive_level(self.ctx()), "CREATOR_READY")
+        self.assertIn("code source review (v4 B02)=UNVERIFIED", gre.status_report(self.ctx()))
+        self.assertIn("release rights record INCOMPLETE", gre.status_report(self.ctx()))
         self.assertEqual(self.errors(), [])
 
     def test_base_version_bump_requires_reverification(self):
         self.start()
-        self.own_engine_reuse()
-        self.verify_group("logic")
+        self.logic_ready()
         gre.set_level(self.ctx(), "LOGIC_READY")
         base_path = self.ctx().base_dir / "BASE.json"
         base = json.loads(base_path.read_text(encoding="utf-8"))
@@ -362,6 +565,9 @@ class LevelTest(Fixture):
 
 
 class AutonomyAndHandoffTest(Fixture):
+    def old(self, hours=3):
+        return (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat().replace("+00:00", "Z")
+
     def test_interrupted_session_resumes_from_files(self):
         self.start()
         with self.assertRaisesRegex(ValueError, "capability gap"):
@@ -369,10 +575,9 @@ class AutonomyAndHandoffTest(Fixture):
         gre.task_start(self.ctx(), "T-01", "build", "atlas loader", timeout_min=20)
         gre.checkpoint(self.ctx(), "finish atlas loader then verify P1-01 with a capture", resume_command="npm test")
         state = self.ctx().load("RE_STATE.json")
-        state["tasks"][0]["started_utc"] = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat().replace("+00:00", "Z")
+        state["tasks"][0]["started_utc"] = self.old()
         self.ctx().save("RE_STATE.json", state)
-        fresh = gre.Context(self.root)
-        report = gre.resume_report(fresh)
+        report = gre.resume_report(gre.Context(self.root))
         self.assertIn("STALLED: task T-01", report)
         self.assertIn("finish atlas loader", report)
         for _ in range(3):
@@ -380,12 +585,58 @@ class AutonomyAndHandoffTest(Fixture):
             gre.task_start(self.ctx(), "T-01", "build", "atlas loader retry", timeout_min=20)
         self.assertTrue(any("REPEATED_FAILURE" in m for m in gre.task_done(self.ctx(), "T-01", "failed", "same crash")))
 
-    def test_research_and_polish_spin_guards(self):
+    def test_long_task_timeout_is_recovered_safely(self):
         self.start()
-        for n in range(6):
-            gre.task_start(self.ctx(), "R-%d" % n, "research", "boss %d frames" % n, item="L3-02")
+        gre.task_start(self.ctx(), "T-07", "build", "batch atlas export", timeout_min=30, pid="4242", command="python tools/export.py")
+        with self.assertRaisesRegex(ValueError, "has not passed its timeout"):
+            gre.task_recover(self.ctx(), "T-07", "restart", "looked fine")
+        state = self.ctx().load("RE_STATE.json")
+        state["tasks"][0]["started_utc"] = self.old(2)
+        self.ctx().save("RE_STATE.json", state)
+        self.assertTrue(any("STALLED: task T-07" in w for w in gre.guard_warnings(self.ctx())))
+        messages = gre.task_recover(self.ctx(), "T-07", "restart", "no output for 90 min; stopped pid 4242 only", timeout_min=15)
+        self.assertTrue(any("pid 4242" in m for m in messages))
+        task = self.ctx().load("RE_STATE.json")["tasks"][0]
+        self.assertEqual((task["status"], task["attempts"], task["failures"], task["timeout_min"]), ("ACTIVE", 2, 1, 15))
+        self.assertEqual(self.ctx().load("RE_STATE.json")["task_log"][-1]["result"], "timeout")
+        self.assertIn("task_recover", [e["event"] for e in self.ctx().history()])
+        state = self.ctx().load("RE_STATE.json")
+        state["tasks"][0]["started_utc"] = self.old(2)
+        self.ctx().save("RE_STATE.json", state)
+        gre.task_recover(self.ctx(), "T-07", "abandon", "exporter hangs on 4k sheets; switch to tiled export")
+        self.assertFalse(any("T-07" in p for p in gre.handoff_check(self.ctx())))
+
+    def test_high_priority_gap_blocks_endless_polish_and_research(self):
+        self.start()
+        for n in range(4):
+            gre.task_start(self.ctx(), "J-%d" % n, "polish", "flash tweak %d" % n)
+            gre.task_done(self.ctx(), "J-%d" % n, "ok", "tweaked")
+        with self.assertRaisesRegex(ValueError, "POLISH_BLOCKED"):
+            gre.task_start(self.ctx(), "J-4", "polish", "one more flash tweak")
+        top = gre.candidates(self.ctx())[0]
+        self.assertTrue(top["id"].startswith("L"))
+        self.assertGreaterEqual(top["score"], 10)
+        self.assertNotIn("polish", top["action"])
+        self.assertIn(top["id"], gre.next_report(self.ctx()))
+        gre.task_start(self.ctx(), "J-4", "polish", "release blocker typo", override_reason="user asked for this fix now")
+        gre.task_done(self.ctx(), "J-4", "ok", "fixed")
+        for n in range(3):
+            gre.task_start(self.ctx(), "R-%d" % n, "research", "jump curve attempt %d" % n, item="L2-01")
+            gre.task_done(self.ctx(), "R-%d" % n, "ok", "still unclear")
+        with self.assertRaisesRegex(ValueError, "RESEARCH_BUDGET"):
+            gre.task_start(self.ctx(), "R-3", "research", "jump curve attempt 3", item="L2-01")
+        action = next(c for c in gre.candidates(self.ctx()) if c["id"] == "L2-01")["action"]
+        self.assertIn("mature licensed component", action)
+
+    def test_research_and_polish_spin_warnings(self):
+        self.start()
+        for n, item in enumerate(("L3-01", "L3-02", "L4-01", "L4-02", "L1-01", "L1-02")):
+            gre.task_start(self.ctx(), "R-%d" % n, "research", "study %s" % item, item=item)
             gre.task_done(self.ctx(), "R-%d" % n, "ok", "notes")
         self.assertTrue(any("RESEARCH_SPIN" in w for w in gre.guard_warnings(self.ctx())))
+        state = self.ctx().load("RE_STATE.json")
+        state["guards"]["high_priority_score"] = 99
+        self.ctx().save("RE_STATE.json", state)
         for n in range(5):
             gre.task_start(self.ctx(), "J-%d" % n, "polish", "flash tweak %d" % n)
             gre.task_done(self.ctx(), "J-%d" % n, "ok", "tweaked")
@@ -400,28 +651,34 @@ class AutonomyAndHandoffTest(Fixture):
         self.assertTrue(any("ACTIVE" in p for p in problems))
         gre.task_done(self.ctx(), "T-02", "blocked", "needs animation clip spec; see qa/notes.md")
         gre.checkpoint(self.ctx(), "agent-b: implement P3-01 transitions from DYNAMIC_STUDY section 4")
-        handoff = self.ctx().path("BASE_HANDOFF.md")
-        handoff.write_text("# Base 交接\n- 当前等级 NONE；下一步 P3-01。\n", encoding="utf-8")
+        self.ctx().path("BASE_HANDOFF.md").write_text("# Base 交接\n- 当前等级 NONE；下一步 P3-01。\n", encoding="utf-8")
         self.assertEqual(gre.handoff_check(self.ctx()), [])
         gre.assign(gre.Context(self.root), "agent-b", "E5")
         status = gre.status_report(self.ctx())
         self.assertIn("Assignment: agent-b", status)
         self.assertIn("implement P3-01", status)
-        events = [e["event"] for e in self.ctx().history()]
-        self.assertEqual(events.count("assign"), 2)
+        self.assertEqual([e["event"] for e in self.ctx().history()].count("assign"), 2)
 
     def test_cli_smoke(self):
         self.write("engine/core/a.ts", "1\n")
+        self.write("research/code.md", "review\n")
         out = io.StringIO()
+        project = ["--project", str(self.root)]
         with redirect_stdout(out), redirect_stderr(io.StringIO()):
-            self.assertEqual(gre.main(["init", "--project", str(self.root), "--code-path", "engine", "--core-path", "engine/core",
-                                       "--reference", "https://example.com/g"]), 0)
-            self.assertEqual(gre.main(["validate", "--project", str(self.root)]), 0)
-            self.assertEqual(gre.main(["status", "--project", str(self.root)]), 0)
-            self.assertEqual(gre.main(["level", "--project", str(self.root), "--set", "LOGIC_READY"]), 2)
-            self.assertEqual(gre.main(["handoff", "--project", str(self.root)]), 1)
-            self.assertEqual(gre.main(["parity", "set", "--project", str(self.root), "--item", "L1-01", "--status", "RESEARCHING"]), 0)
+            self.assertEqual(gre.main(["init"] + project + ["--code-path", "engine", "--core-path", "engine/core",
+                                                            "--reference", "https://example.com/g"]), 0)
+            self.assertEqual(gre.main(["validate"] + project), 0)
+            self.assertEqual(gre.main(["status"] + project), 0)
+            self.assertEqual(gre.main(["next"] + project), 0)
+            self.assertEqual(gre.main(["upgrade"] + project), 0)
+            self.assertEqual(gre.main(["discover"] + project + ["--source", "code", "--status", "DONE", "--evidence", "research/code.md"]), 0)
+            self.assertEqual(gre.main(["parity", "add"] + project + ["--item", "P2-04", "--domain", "P2", "--name", "palette swap",
+                                                                     "--source", "assets", "--evidence", "research/code.md"]), 0)
+            self.assertEqual(gre.main(["level"] + project + ["--set", "LOGIC_READY"]), 2)
+            self.assertEqual(gre.main(["handoff"] + project), 1)
+            self.assertEqual(gre.main(["parity", "set"] + project + ["--item", "L1-01", "--status", "RESEARCHING"]), 0)
         self.assertIn("RECORD_CHECK_PASSED", out.getvalue())
+        self.assertIn("Next tasks by value", out.getvalue())
 
 
 if __name__ == "__main__":

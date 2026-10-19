@@ -1,6 +1,6 @@
 {
   "schema_version": "gre-1.0",
-  "note": "能力等价矩阵（机器记录）。只有 VERIFIED（带测试/运行时/测量证据）或带依据的 NOT_APPLICABLE 计入交付等级；INTERFACE_ONLY、DOCUMENTED 不计。可新增游戏专有条目，不得删除能力域。",
+  "note": "能力等价矩阵（机器记录）。这 38 个通用条目只是起始检查清单，不是能力上限：必须从原版代码、运行行为和资源结构中发现游戏特有能力并加入（origin=discovered）。scope 区分 core / optional / legacy / excluded（后三种需要 scope_reason）；capability_class 区分 PARITY（有原版证据的等价能力）/ REPLACEMENT（不同的合规实现）/ EXTENSION（原创扩展）。只有绑定当前代码指纹、带测试/运行时/测量证据的 VERIFIED，或带依据的 NOT_APPLICABLE，才计入交付等级。",
   "domains": [
     {
       "id": "L1",
@@ -78,13 +78,40 @@
       "name": "扩展接口与制作支持"
     }
   ],
+  "discovery": {
+    "note": "特有能力发现：分别审查原版代码、运行行为和资源结构；无法获得某个来源时记 UNAVAILABLE 并写原因。",
+    "sources": {
+      "code": {
+        "status": "PENDING",
+        "evidence": [],
+        "reason": "",
+        "findings": []
+      },
+      "runtime": {
+        "status": "PENDING",
+        "evidence": [],
+        "reason": "",
+        "findings": []
+      },
+      "assets": {
+        "status": "PENDING",
+        "evidence": [],
+        "reason": "",
+        "findings": []
+      }
+    },
+    "reviews": []
+  },
   "items": [
     {
       "id": "L1-01",
       "domain": "L1",
       "name": "核心循环、胜负条件与结算",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -93,10 +120,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -106,7 +139,10 @@
       "domain": "L1",
       "name": "计分/经济/资源规则与数值单位",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -115,10 +151,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -128,7 +170,10 @@
       "domain": "L1",
       "name": "随机性、固定种子与难度参数",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -137,10 +182,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -150,7 +201,10 @@
       "domain": "L2",
       "name": "输入映射与操作时序（加速度、跳跃、冷却、输入缓冲）",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -159,10 +213,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -172,7 +232,10 @@
       "domain": "L2",
       "name": "碰撞、地形与物理步进（固定步长）",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -181,10 +244,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -194,7 +263,10 @@
       "domain": "L3",
       "name": "敌人行为状态机与目标选择",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -203,10 +275,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -216,7 +294,10 @@
       "domain": "L3",
       "name": "Boss 阶段、部件与攻击时间轴",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -225,10 +306,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -238,7 +325,10 @@
       "domain": "L4",
       "name": "武器/技能参数、冷却与资源消耗",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -247,10 +337,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -260,7 +356,10 @@
       "domain": "L4",
       "name": "弹道、命中判定、伤害与状态效果结算",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -269,10 +368,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -282,7 +387,10 @@
       "domain": "L5",
       "name": "数据驱动关卡格式与加载（段落/波次/布局）",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -291,10 +399,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -304,7 +418,10 @@
       "domain": "L5",
       "name": "刷怪、触发器、门禁与延迟事件",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -313,10 +430,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -326,7 +449,10 @@
       "domain": "L5",
       "name": "关卡设计约束校验（可达性、间距、软锁）",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -335,10 +461,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -348,7 +480,10 @@
       "domain": "L6",
       "name": "存档、版本迁移与损坏回退",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -357,10 +492,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -370,7 +511,10 @@
       "domain": "L6",
       "name": "HUD、菜单、暂停与结算流程",
       "required_for": "LOGIC_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -379,10 +523,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -392,7 +542,10 @@
       "domain": "P1",
       "name": "图集打包与帧元数据（尺寸、裁切、锚点）",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -401,10 +554,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -414,7 +573,10 @@
       "domain": "P1",
       "name": "Sprite 加载、缩放、朝向与像素对齐",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -423,10 +585,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -436,7 +604,10 @@
       "domain": "P2",
       "name": "逐帧动画（循环/一次性/速率/反向）",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -445,10 +616,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -458,7 +635,10 @@
       "domain": "P2",
       "name": "分部件（拆件）动画：部件树、挂点、换装",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -467,10 +647,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -480,7 +666,10 @@
       "domain": "P2",
       "name": "骨骼/轨道插值动画与混合过渡",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -489,10 +678,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -502,7 +697,10 @@
       "domain": "P3",
       "name": "动画状态机、过渡与优先级（与逻辑状态映射）",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -511,10 +709,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -524,7 +728,10 @@
       "domain": "P3",
       "name": "帧事件（命中、发射、脚步）与逻辑时序同步",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -533,10 +740,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -546,7 +759,10 @@
       "domain": "P4",
       "name": "场景图层与视差（数据化 layer graph）",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -555,10 +771,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -568,7 +790,10 @@
       "domain": "P4",
       "name": "遮挡与排序键（行/深度/偏移）",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -577,10 +802,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -590,7 +821,10 @@
       "domain": "P4",
       "name": "渲染批处理、混合模式（加法、受击闪白）与相机",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -599,10 +833,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -612,7 +852,10 @@
       "domain": "P5",
       "name": "参数化粒子发射器与数量预算",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -621,10 +864,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -634,7 +883,10 @@
       "domain": "P5",
       "name": "命中、爆炸、拖尾等事件驱动特效",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -643,10 +895,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -656,7 +914,10 @@
       "domain": "P5",
       "name": "接触阴影、透明混合与基础光照",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -665,10 +926,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -678,7 +945,10 @@
       "domain": "P6",
       "name": "资源清单 schema 与异步加载",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -687,10 +957,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -700,7 +976,10 @@
       "domain": "P6",
       "name": "资源替换、分层覆盖与占位回退诊断",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -709,10 +988,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -722,7 +1007,10 @@
       "domain": "P6",
       "name": "导入校验（期望数量、尺寸、挂点、引用；不符即失败）",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -731,10 +1019,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -744,7 +1038,10 @@
       "domain": "P7",
       "name": "音频清单、总线与音量组",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -753,10 +1050,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -766,7 +1069,10 @@
       "domain": "P7",
       "name": "音效与动画事件同步、变体与去抖",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -775,10 +1081,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -788,7 +1100,10 @@
       "domain": "P8",
       "name": "帧时间预算与高负载场景实测",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -797,10 +1112,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -810,7 +1131,10 @@
       "domain": "P8",
       "name": "对象池、缓存与内存上限",
       "required_for": "PRESENTATION_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -819,10 +1143,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -832,7 +1162,10 @@
       "domain": "C1",
       "name": "只改配置即可新增角色/单位/武器（不改核心）",
       "required_for": "CREATOR_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -841,10 +1174,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -854,7 +1193,10 @@
       "domain": "C1",
       "name": "通过 schema 组合地图、事件、刷怪与目标",
       "required_for": "CREATOR_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -863,10 +1205,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -876,7 +1224,10 @@
       "domain": "C1",
       "name": "主题/视觉风格替换（token + 资产清单）",
       "required_for": "CREATOR_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -885,10 +1236,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []
@@ -898,7 +1255,10 @@
       "domain": "C1",
       "name": "最小关卡模板与新增内容教程可复现",
       "required_for": "CREATOR_READY",
-      "importance": "core",
+      "scope": "core",
+      "scope_reason": "",
+      "origin": "template",
+      "capability_class": "",
       "original": {
         "evidence_level": "UNKNOWN",
         "refs": [],
@@ -907,10 +1267,16 @@
       "approach": "UNDECIDED",
       "reuse_modules": [],
       "research_basis": [],
+      "code_paths": [],
+      "value": {
+        "impact": 2,
+        "cost": "M"
+      },
       "status": "NOT_STARTED",
       "base_version": "",
       "verification": [],
       "differences": "",
+      "design_note": "",
       "reusable_for_new_games": false,
       "na_basis": "",
       "history": []

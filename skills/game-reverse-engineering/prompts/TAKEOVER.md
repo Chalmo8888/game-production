@@ -19,8 +19,11 @@ Skill 仓库：https://github.com/Chalmo8888/game-production（使用 skills/gam
    - 没有任何记录：gre.py init --project . --code-path <现有引擎目录> --core-path <核心目录>，不移动代码。
 3. 把已有成果映射进能力等价矩阵：已有的测试、录屏、测量和研究文档作为证据加入（先用 gre.py evidence 存档），
    旧报告中“已完成”的结论只有在证据仍然有效时才保留。只有接口或文档的能力记为 INTERFACE_ONLY/DOCUMENTED。
-4. 完成 REUSE.json 与 RE01，再按 status 列出的最大缺口推进：研究过多而 Base 不足时先补 Base；
-   只有逻辑没有表现时补 P1–P8；然后做两套原创测试配置的 Creator 验证。
+4. 用 gre.py discover 审查原版代码、运行行为和资源结构，把模板之外的游戏特有能力加入矩阵；
+   如实标注 PARITY / REPLACEMENT / EXTENSION，原版行为不明确的部分不得写成 PARITY。
+5. 完成 REUSE.json（含执行边界）与 RE01，再按 gre.py next 的价值排序推进：研究过多而 Base 不足时
+   先补 Base；只有逻辑没有表现时补 P1–P8；然后做 Creator 生产能力测试（两套视觉不同的原创配置，
+   各有玩法改动和完整循环，运行在同一个核心上）。旧的 1.0.0 记录先运行 gre.py upgrade。
 
 【无人值守执行规则】
 开始调查并执行，直到达到当前授权范围内可验证的交付目标，或遇到无法自行解决的真实外部阻断。

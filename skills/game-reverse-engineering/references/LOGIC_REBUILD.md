@@ -28,4 +28,4 @@
 - 测试结果用 `gre.py evidence` 按时间戳保存，不覆盖旧结果。
 
 ## 5. 达到 LOGIC_READY
-RE01 PASS；L1–L6 的全部条目 VERIFIED（或带依据 N/A；L3、L4 可以整体 N/A，例如解谜类游戏没有敌人）。每个其他域至少有一个 VERIFIED。运行 `gre.py level --set LOGIC_READY`，证据不足时工具会列出缺口。LOGIC_READY 不代表 Base 已经可以用来做游戏：表现能力尚未验证。
+RE01 PASS；游戏特有能力的发现已覆盖代码、运行和资源三类来源；L1–L6 的全部 core 条目（包括发现的特有能力）VERIFIED 并绑定当前代码指纹，或带依据 N/A（L3、L4 可以整体 N/A，例如解谜类游戏没有敌人）。每个其他域至少有一个 VERIFIED。条目要如实标注 PARITY / REPLACEMENT / EXTENSION。运行 `gre.py level --set LOGIC_READY`，证据不足时工具会列出缺口。LOGIC_READY 不代表 Base 已经可以用来做游戏：表现能力尚未验证。

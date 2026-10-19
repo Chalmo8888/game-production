@@ -1,8 +1,10 @@
 {
   "schema_version": "gre-1.0",
   "required_probes": 2,
+  "max_visual_overlap": 0.2,
   "categories": ["character", "animation", "unit", "map", "visual_style"],
-  "note": "Creator Ready 验证：两套差异明显的原创测试配置，在同一个未修改的引擎核心上替换角色、动画、单位、地图与视觉风格。",
+  "loop_steps": ["start", "play", "end", "result", "restart"],
+  "note": "Creator 生产能力测试（不是 Game 01）：同一个稳定核心上，两套明显不同的原创视觉配置（视觉资产重合不超过 max_visual_overlap；公共字体、工具、基础资源放进 shared_files 可以共用），各自通过配置或扩展接口做出有实际意义的玩法改动，并用原创测试素材以正常输入跑通一个短小但完整的循环。全部有运行时证据。",
   "probes": [],
   "probes_history": []
 }

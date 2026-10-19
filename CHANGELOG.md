@@ -1,5 +1,22 @@
 # Changelog
 
+## game-reverse-engineering 1.1.0（2026-10-19，发布前补强）
+1.1.0 只做加法，数据格式仍是 `gre-1.0`：1.0.0 的记录可以直接读取，`gre.py upgrade` 只补字段，不改已有值。
+- **游戏特有能力发现**：38 个通用条目只是起始清单。新增 `gre.py discover`，要求从代码、运行、资源三类来源审查，结论为 DONE 或 UNAVAILABLE（须写原因）；新增 `parity add --source` 登记发现的条目，并附发现位置的证据。条目范围分为 core / optional / legacy / excluded，降级或排除都要写理由。三类来源都处理完才能达到 LOGIC_READY。
+- **能力来源分类**：PARITY / REPLACEMENT / EXTENSION。PARITY 只能用于原版证据为 VERIFIED 或 STATIC_ONLY 的条目；UNKNOWN 的能力只能显式标为 EXTENSION 才能实现；REPLACEMENT 必须写差异，EXTENSION 必须有设计说明。报告和状态分别统计三类数量。
+- **Creator 生产能力测试**：
+  - 视觉资产重合不超过 20%，公共字体、工具和基础资源可以放进 shared_files 共用；
+  - 每套配置至少一项通过配置或扩展接口实现的玩法改动（`probe-gameplay`，必须涉及 L1–L5 或 C1）；
+  - 用正常输入跑通完整循环：开始 → 游玩 → 胜/负 → 结算 → 重开（`probe-loop`）；
+  - 全部有运行时证据，并运行在同一个核心指纹上；测试素材不得来自隔离材料。
+  只换图片的配置被列为 visual-only，不能证明生产能力。
+- **QA 绑定代码**：VERIFIED 记录相关代码的指纹（`code_paths`，默认是整个核心）和 Git HEAD；相关代码改动后旧 QA 自动过期，状态中列为 stale。
+- **价值驱动排序**：新增 `gre.py next`，按影响、是否阻碍下一等级、对新游戏的价值、证据是否充分和成本排序，并给出建议动作。研究预算（每条目默认 3 次）用完后拒绝继续研究，建议改用成熟组件（REPLACEMENT）或 EXTENSION。高分缺口未完成时，连续第 5 个打磨或文档任务被拒绝（POLISH_BLOCKED，可写理由覆盖）。新增 NEGLECTED_GAP 警告。
+- **超时安全恢复**：`task start` 可以记录 pid 和命令；新增 `task recover --recover-action restart|abandon`，只允许处理已超时的任务（或 `--force` 并写明原因），任务记为 TIMED_OUT 并计入失败次数。
+- **执行边界**：REUSE 模块新增 `execution`（never / sandboxed / reviewed）和 `execution_note`；隔离材料只能 never 或 sandboxed；核心路径不能位于 `research-private/`。
+- **权利拆分为三项**：RE01（第三方代码许可）、RE03（原作素材与具体表达的使用权，只能由权利人批准，role 为 rights_holder）、RE02（用户公开发布批准，role 为 user，不能替代权利人授权）。状态显示“发布权利记录完整/不完整”，并始终注明“不是法律意见，剩余风险不为零”。
+- **测试与性能**：测试增至 31 个；同一次快照内缓存条目检查和等级推导。
+
 ## 仓库 2026-10-19：新增 game-reverse-engineering 1.0.0；game-production 4.1.0
 仓库变为多 Skill 结构。根目录仍然是 game-production，新的独立 Skill 放在 `skills/` 下。
 
