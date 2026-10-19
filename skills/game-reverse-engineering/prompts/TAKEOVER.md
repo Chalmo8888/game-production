@@ -22,7 +22,8 @@ Skill 仓库：https://github.com/Chalmo8888/game-production（使用 skills/gam
 4. 用 gre.py discover 审查原版代码、运行行为和资源结构，把模板之外的游戏特有能力加入矩阵；
    如实标注 PARITY / REPLACEMENT / EXTENSION，原版行为不明确的部分不得写成 PARITY。
 5. 完成 REUSE.json（含执行边界）与 RE01，再按 gre.py next 的价值排序推进：研究过多而 Base 不足时
-   先补 Base；只有逻辑没有表现时补 P1–P8；然后做 Creator 生产能力测试（两套视觉不同的原创配置，
+   先补 Base；只有逻辑没有表现时补 P1–P8，并完成表现系统重建（gre.py present：PR01–PR10 调查原作的
+   画面组合机制，PX01–PX08 在 Base 中用原创资产搭建可配置场景实测）；然后做 Creator 生产能力测试（两套视觉不同的原创配置，
    各有玩法改动和完整循环，运行在同一个核心上）。旧的 1.0.0 记录先运行 gre.py upgrade。
 
 【无人值守执行规则】

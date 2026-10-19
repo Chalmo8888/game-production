@@ -4,7 +4,7 @@
 | 等级 | 含义 | 条件（工具核对） |
 |---|---|---|
 | LOGIC_READY | 玩法逻辑可以作为成熟基础使用 | RE01 PASS（复用评估完成，无 REVIEW）；游戏特有能力的发现已覆盖代码、运行和资源三类来源（或注明无法获得）；L1–L6 全部 core 条目 VERIFIED 或带依据 N/A；L1、L2、L5、L6 各至少一个 VERIFIED |
-| PRESENTATION_READY | 2D 表现体系完整可用 | + P1–P8 全部 core 条目满足要求，每个域至少一个 VERIFIED，表现证据为运行时录制或测量 |
+| PRESENTATION_READY | 2D 表现体系完整可用，并真正继承或重建了原作的场景装配、动画、渲染和资源控制能力 | + P1–P8 全部 core 条目满足要求，每个域至少一个 VERIFIED，表现证据为运行时录制或测量；**Presentation Reconstruction Gate 通过**（[规范见 PRESENTATION_2D 第 5 节](PRESENTATION_2D.md)） |
 | CREATOR_READY | 同一个稳定核心可以生产出不同的游戏 | + C1 全部满足；两套有效的 Creator 生产能力测试配置；core 能力 `reusable_for_new_games = true` |
 
 - 所有 VERIFIED 都必须绑定当前 Base 版本和相关代码指纹。核心代码改动或 Base 升级后，相关条目过期，等级需要重新验证。
@@ -13,7 +13,7 @@
 
 ## 2. Creator 生产能力测试
 这是 Base 的生产能力测试，不是提前制作 Game 01。每套测试配置（probe）用以下命令记录：
-1. `gre.py probe`：配置文件、**视觉资产**（本配置专有）、**共用资源**（`--shared`：公共字体、工具、基础资源，可以合法共用）、五类替换的运行时证据（角色、动画、单位、地图、视觉风格）和核心指纹。
+1. `gre.py probe`：配置文件、**场景配置**（`--scene`，用 PX01 验证过的场景配置机制组装，两套不能相同）、**视觉资产**（本配置专有）、**共用资源**（`--shared`：公共字体、工具、基础资源，可以合法共用）、五类替换的运行时证据（角色、动画、单位、地图、视觉风格）和核心指纹。
 2. `gre.py probe-gameplay`：至少一项具有实际意义的玩法改动，例如新的武器行为、波次节奏、关卡机关或胜利条件。它必须引用 L1–L5 或 C1 中的条目，通过配置文件或既有扩展接口实现，并有运行时证据。只改表现的不算。
 3. `gre.py probe-loop`：用原创测试素材、以正常输入（不跳关、不无敌、不强制胜利）跑通一个短小但完整的循环：开始 → 游玩 → 胜或负 → 结算 → 重开，并附录像或运行时录制。
 
@@ -47,5 +47,5 @@
 - `gre.py validate --strict-target` 通过（目标等级已达到）。
 - `gre.py report` 生成最新报告（包含 PARITY / REPLACEMENT / EXTENSION 统计与下一步）。
 - 冻结 Base 版本（v4：`project.py base update --freeze`），并按报告把证据映射到 v4 门禁 B01、B03–B08（见 V4_INTEGRATION）。
-- 填写 `re/BASE_HANDOFF.md`，运行 `gre.py checkpoint` 和 `gre.py handoff`（COMPLETE）。
+- 填写 `re/BASE_HANDOFF.md`，包括“后续游戏创作交接”的 7 项具体做法，然后运行 `gre.py checkpoint` 和 `gre.py handoff`（COMPLETE）。
 - 创建只包含本任务改动的 Git 提交；未经授权不 push。

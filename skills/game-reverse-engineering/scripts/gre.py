@@ -25,7 +25,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 KIT_ROOT = Path(__file__).resolve().parent.parent
 SKILL_NAME = "game-reverse-engineering"
-SKILL_VERSION = "1.1.0"
+SKILL_VERSION = "1.2.0"
 GRE_SCHEMA = "gre-1.0"
 V4_SCHEMA = "3.0"
 V4_KIT_VERSION = "4.1.0"
@@ -539,6 +539,7 @@ def init(root: Path, base_id: str = "core", version: str = "0.1.0", code_path: s
         if agent:
             state["assignment"] = {"agent_label": agent, "scope": "E0-E7", "since_utc": now_utc()}
         for name_, source in (("PARITY.json", "PARITY.json"), ("REUSE.json", "REUSE.json"), ("PROBES.json", "PROBES.json"),
+                              ("PRESENTATION.json", "PRESENTATION.json"),
                               ("GATES.json", "GATES.json"), ("TECH_SURVEY.md", "TECH_SURVEY.md"),
                               ("DYNAMIC_STUDY.md", "DYNAMIC_STUDY.md"), ("BASE_HANDOFF.md", "BASE_HANDOFF.md")):
             create_new(re_dir / name_, template(source).read_bytes())
@@ -584,6 +585,8 @@ def upgrade(ctx: Context) -> List[str]:
         parity["discovery"] = load_json(template("PARITY.json"))["discovery"]
         ctx.save("PARITY.json", parity)
         added.append("PARITY.discovery")
+    if create_new(ctx.path("PRESENTATION.json"), template("PRESENTATION.json").read_bytes()):
+        added.append("PRESENTATION.json")
     probes = ctx.load("PROBES.json")
     if "max_visual_overlap" not in probes:
         probes["max_visual_overlap"] = load_json(template("PROBES.json"))["max_visual_overlap"]
@@ -962,6 +965,11 @@ def probe_errors(ctx: Context, probes: Dict[str, Any], data: Dict[str, Any]) -> 
             else:
                 own += files_ok(label + " " + field, files, False)
         own += files_ok(label + " shared_files", probe.get("shared_files", []) or [], True)
+        scenes = probe.get("scene_files")
+        if not isinstance(scenes, list) or not scenes:
+            own.append(label + ": no scene configuration; Creator probes must assemble their scene through the Base's scene configuration (see PX01)")
+        else:
+            own += files_ok(label + " scene_files", scenes, False)
         replaces = probe.get("replaces") if isinstance(probe.get("replaces"), dict) else {}
         for category in PROBE_CATEGORIES:
             evidence = (replaces.get(category) or {}).get("evidence") if isinstance(replaces.get(category), dict) else None
@@ -1030,12 +1038,269 @@ def probe_errors(ctx: Context, probes: Dict[str, Any], data: Dict[str, Any]) -> 
             cb = {f["sha256"] for c in second["gameplay_changes"] for f in c["config_files"]}
             if ca == cb:
                 errors.append(pair + ": gameplay configurations are identical; each probe must change gameplay differently")
+            if {f["sha256"] for f in first["scene_files"]} == {f["sha256"] for f in second["scene_files"]}:
+                errors.append(pair + ": scene configurations are identical; each probe must assemble its own scene")
             for category in PROBE_CATEGORIES:
                 ea = {e["sha256"] for e in first["replaces"][category]["evidence"]}
                 eb = {e["sha256"] for e in second["replaces"][category]["evidence"]}
                 if ea & eb:
                     errors.append(pair + ": identical %s evidence; each probe needs its own runtime proof" % category)
     return errors, [p["id"] for p in valid]
+
+
+# ---------------------------------------------------------------- presentation reconstruction
+
+PR_TOPICS = ["PR%02d" % i for i in range(1, 11)]
+PX_CHECKS = {
+    "PX01": {"runtime-capture", "recording"},
+    "PX02": {"measurement"},
+    "PX03": {"measurement", "runtime-capture"},
+    "PX04": {"recording"},
+    "PX05": {"measurement", "trace"},
+    "PX06": {"measurement"},
+    "PX07": {"measurement"},
+    "PX08": {"measurement"},
+}
+STUDY_FIELDS = ("inputs", "outputs", "data_structures", "constraints", "unknowns", "reuse")
+CREATOR_GUIDE = ("怎样新增一套场景：", "怎样修改背景、地形、前景和 UI：", "怎样添加新角色和动画：",
+                 "怎样配置不同对象的布局与层级：", "怎样配置攻击、技能及特效挂点：",
+                 "怎样更换视觉风格而不修改战斗逻辑：", "已实现与仍需扩展的能力：")
+STATIC_KINDS = {"static-analysis", "source", "data", "disassembly", "asset-structure"}
+SCREEN_KINDS = {"screenshot", "runtime-capture"}
+PRESENTATION_DYNAMIC = {"trace", "measurement", "recording", "comparison"}
+
+
+def study_errors(ctx: Context, tid: str, topic: Dict[str, Any], items: Dict[str, Any]) -> Tuple[List[str], List[str]]:
+    """A topic must say what the original actually does, with evidence; screenshots alone are at most INFERRED."""
+    errors, warnings = [], []
+    label = "PRESENTATION %s" % tid
+    level = topic.get("evidence_level")
+    if level not in EVIDENCE_LEVELS:
+        return [label + ": invalid evidence_level"], warnings
+    refs = topic.get("refs", [])
+    e, w = check_evidence(refs, ctx.root, label, allow_local=True)
+    errors += e
+    warnings += w
+    kinds = {r.get("kind") for r in refs if isinstance(r, dict)}
+    if level == "VERIFIED" and not kinds & PRESENTATION_DYNAMIC:
+        errors.append(label + ": VERIFIED needs dynamic evidence (trace, measurement, recording or comparison); screenshots alone support at most INFERRED")
+    if level == "STATIC_ONLY" and not kinds & STATIC_KINDS:
+        errors.append(label + ": STATIC_ONLY needs static evidence (source, data, disassembly, asset-structure); screenshots alone support at most INFERRED")
+    if level in ("STATIC_ONLY", "INFERRED", "PROXY") and not text(topic.get("dynamic_gap")):
+        errors.append(label + ": %s needs dynamic_gap (what the evidence does not prove)" % level)
+    for iid in topic.get("items", []):
+        if iid not in items:
+            errors.append(label + ": linked parity item %s does not exist" % iid)
+    return errors, warnings
+
+
+def study_problems(ctx: Context, data: Dict[str, Any]) -> List[str]:
+    presentation = data.get("presentation")
+    if presentation is None:
+        return ["PRESENTATION.json is missing (records from before 1.2.0); run `gre.py upgrade`"]
+    items = {i.get("id"): i for i in data["parity"].get("items", []) if isinstance(i, dict)}
+    problems = []
+    for tid in PR_TOPICS:
+        topic = presentation.get("study", {}).get(tid)
+        if not isinstance(topic, dict):
+            problems.append("%s is missing from the presentation study" % tid)
+            continue
+        errors, _ = study_errors(ctx, tid, topic, items)
+        if errors:
+            problems.append(errors[0])
+            continue
+        if text(topic.get("na_basis")):
+            if not topic.get("refs"):
+                problems.append("%s is NOT_APPLICABLE but has no evidence that the original lacks it" % tid)
+            continue
+        if topic.get("evidence_level") == "UNKNOWN" or not topic.get("refs"):
+            problems.append("%s %s: not studied (record actual source evidence)" % (tid, topic.get("name", "")))
+            continue
+        empty = [f for f in STUDY_FIELDS if not text(topic.get(f))]
+        if empty:
+            problems.append("%s: record %s (write 'none known' only when that is the finding)" % (tid, ", ".join(empty)))
+    return problems
+
+
+def files_changed(ctx: Context, files: List[Dict[str, Any]]) -> List[str]:
+    changed = []
+    for entry in files:
+        try:
+            path = safe_path(ctx.root, entry.get("path", ""))
+            if not path.is_file() or digest(path) != entry.get("sha256"):
+                changed.append(entry.get("path"))
+        except (ValueError, AttributeError):
+            changed.append(str(entry))
+    return changed
+
+
+def check_problems(ctx: Context, cid: str, check: Dict[str, Any], data: Dict[str, Any]) -> List[str]:
+    label = "%s %s" % (cid, check.get("name", ""))
+    if check.get("status") != "PASS":
+        return [label + ": is " + str(check.get("status"))]
+    problems = []
+    evidence = check.get("evidence", [])
+    errors, _ = check_evidence(evidence, ctx.root, cid)
+    problems += errors[:1]
+    kinds = {e.get("kind") for e in evidence if isinstance(e, dict)}
+    if not kinds & PX_CHECKS[cid]:
+        problems.append(label + ": needs %s evidence from the running Base" % " or ".join(sorted(PX_CHECKS[cid])))
+    if text(check.get("base_version")) != data["current"]:
+        problems.append(label + ": recorded for base %s, current is %s" % (check.get("base_version") or "(none)", data["current"]))
+    if not data["fingerprint"] or check.get("core_fingerprint") != data["fingerprint"]:
+        problems.append(label + ": stale — the engine core changed after this check; re-run it")
+    changed = files_changed(ctx, check.get("bound_files", []))
+    if changed:
+        problems.append(label + ": stale — scene/layout/anchor files changed after this check (%s); re-run and record new evidence" % ", ".join(changed[:3]))
+    quarantine = quarantine_paths(data["reuse"])
+    swap = check.get("swap") if isinstance(check.get("swap"), dict) else {}
+    for entry in check.get("bound_files", []) + [f for k in ("before", "after", "ui_before", "ui_after") for f in swap.get(k, [])]:
+        pure = PurePosixPath(str(entry.get("path", "")))
+        if any(inside(pure, q) for q in quarantine):
+            problems.append(label + ": uses quarantined research material %s; experiments need original or licensed test assets" % entry.get("path"))
+    if cid == "PX01":
+        scenes = {f.get("sha256") for f in check.get("bound_files", [])}
+        if len(scenes) < 2:
+            problems.append(label + ": needs at least two different scene configurations; one fixed screen is not a configurable scene system")
+    if cid == "PX07":
+        before = {f.get("sha256") for f in swap.get("before", [])}
+        after = {f.get("sha256") for f in swap.get("after", [])}
+        ui_before = {f.get("sha256") for f in swap.get("ui_before", [])}
+        ui_after = {f.get("sha256") for f in swap.get("ui_after", [])}
+        if not before or not after or before == after:
+            problems.append(label + ": record scene assets before and after the swap; they must differ")
+        if not ui_before or not ui_after or ui_before == ui_after:
+            problems.append(label + ": record UI theme files before and after the swap; they must differ")
+        if swap.get("core_fingerprint_before") != check.get("core_fingerprint"):
+            problems.append(label + ": the core changed between the original theme and the swapped theme; swapping art must not need core edits")
+        problems += ["%s: swapped files changed after the check (%s)" % (cid, p) for p in files_changed(ctx, swap.get("after", []) + swap.get("ui_after", []))[:1]]
+    if cid == "PX08":
+        resolutions = check.get("resolutions", [])
+        if not resolutions:
+            problems.append(label + ": list the target resolution(s) that were measured")
+        elif sum(1 for e in evidence if isinstance(e, dict) and e.get("kind") == "measurement") < len(resolutions):
+            problems.append(label + ": each target resolution needs its own measurement")
+    return problems
+
+
+def presentation_problems(ctx: Context, data: Dict[str, Any]) -> List[str]:
+    """Presentation Reconstruction Gate: study + running experiment + original comparison record."""
+    problems = study_problems(ctx, data)
+    presentation = data.get("presentation")
+    if presentation is None:
+        return problems
+    checks = presentation.get("experiment", {}).get("checks", {})
+    kinds = set()
+    for cid in PX_CHECKS:
+        check = checks.get(cid)
+        if not isinstance(check, dict):
+            problems.append(cid + " is missing from the reconstruction experiment")
+            continue
+        problems += check_problems(ctx, cid, check, data)
+        if check.get("status") == "PASS":
+            kinds |= {e.get("kind") for e in check.get("evidence", []) if isinstance(e, dict)}
+    missing = [k for k in ("runtime-capture", "recording", "measurement") if k not in kinds]
+    if missing:
+        problems.append("the experiment must keep screenshots, animation sequences and measurements (missing: %s)" % ", ".join(missing))
+    comparison = presentation.get("original_comparison", {})
+    if comparison.get("status") == "DONE":
+        if not any(isinstance(e, dict) and e.get("kind") in ("comparison", "recording", "measurement") for e in comparison.get("evidence", [])):
+            problems.append("original comparison DONE needs comparison/recording/measurement evidence")
+    elif comparison.get("status") == "UNAVAILABLE":
+        if not text(comparison.get("reason")):
+            problems.append("original comparison UNAVAILABLE needs a reason")
+    else:
+        problems.append("record the dynamic comparison with the original (`gre.py present compare --status DONE|UNAVAILABLE`)")
+    return problems
+
+
+def presentation_equivalence(data: Dict[str, Any]) -> str:
+    comparison = (data.get("presentation") or {}).get("original_comparison", {})
+    if comparison.get("status") == "DONE":
+        return "dynamically compared with the original"
+    if comparison.get("status") == "UNAVAILABLE":
+        return "NOT dynamically verified (original could not be run: %s); do not claim visual equivalence" % text(comparison.get("reason"))
+    return "not compared yet"
+
+
+def load_presentation(ctx: Context) -> Dict[str, Any]:
+    if not ctx.path("PRESENTATION.json").is_file():
+        raise ValueError("PRESENTATION.json is missing; run `gre.py upgrade` first")
+    return ctx.load("PRESENTATION.json")
+
+
+def present_study(ctx: Context, tid: str, level: Optional[str] = None, evidence: Optional[str] = None, kind: str = "",
+                  observed: str = "", local: bool = False, gap: Optional[str] = None, items: Optional[List[str]] = None,
+                  na_basis: Optional[str] = None, **fields: Optional[str]) -> List[str]:
+    if tid not in PR_TOPICS:
+        raise ValueError("topic must be one of " + ", ".join(PR_TOPICS))
+    presentation = load_presentation(ctx)
+    topic = presentation["study"][tid]
+    added = []
+    if evidence:
+        entry = evidence_entry(ctx.root, evidence, kind or "static-analysis", observed or "original presentation evidence", "local_research" if local else "")
+        topic.setdefault("refs", []).append(entry)
+        added.append(entry)
+    if level is not None:
+        if level not in EVIDENCE_LEVELS:
+            raise ValueError("level must be one of " + ", ".join(EVIDENCE_LEVELS))
+        topic["evidence_level"] = level
+    for key, value in list(fields.items()) + [("dynamic_gap", gap), ("na_basis", na_basis)]:
+        if value is not None:
+            topic[key] = value
+    if items is not None:
+        topic["items"] = items
+    parity_items = {i.get("id"): i for i in ctx.load("PARITY.json").get("items", []) if isinstance(i, dict)}
+    errors, _ = study_errors(ctx, tid, topic, parity_items)
+    if errors:
+        raise ValueError("Topic %s rejected:\n- %s" % (tid, "\n- ".join(errors)))
+    topic.setdefault("history", []).append({"utc": now_utc(), "level": topic.get("evidence_level"),
+                                            "evidence": [{"path": e["path"], "sha256": e["sha256"]} for e in added]})
+    ctx.save("PRESENTATION.json", presentation)
+    ctx.log("present_study", topic=tid, level=topic.get("evidence_level"),
+            evidence=[{"path": e["path"], "sha256": e["sha256"]} for e in added], locations=[e.get("location", "") for e in added])
+    return ["%s %s: %s" % (tid, topic.get("name"), topic.get("evidence_level"))]
+
+
+def present_check(ctx: Context, cid: str, status: str, evidence: List[Tuple[str, str]], bind: List[str],
+                  note: str = "", resolutions: Optional[List[str]] = None, swap: Optional[Dict[str, List[str]]] = None) -> List[str]:
+    if cid not in PX_CHECKS:
+        raise ValueError("check must be one of " + ", ".join(PX_CHECKS))
+    if status not in ("PASS", "FAIL", "UNVERIFIED", "BLOCKED"):
+        raise ValueError("status must be PASS, FAIL, UNVERIFIED or BLOCKED")
+    presentation = load_presentation(ctx)
+    check = presentation["experiment"]["checks"][cid]
+    entries = [evidence_entry(ctx.root, p, k or "runtime-capture", "%s %s" % (cid, check.get("name", ""))) for p, k in evidence]
+    if check.get("status") != "UNVERIFIED" or check.get("evidence"):
+        check.setdefault("history", []).append({k: check.get(k) for k in ("status", "evidence", "bound_files", "core_fingerprint", "base_version", "swap", "resolutions") if k in check})
+    fingerprint = ctx.fingerprint(ctx.core_paths())
+    check.update(status=status, evidence=entries, bound_files=collect_files(ctx, bind), core_fingerprint=fingerprint,
+                 base_version=ctx.current_version(), note=note, utc=now_utc())
+    if resolutions is not None:
+        check["resolutions"] = resolutions
+    if swap is not None:
+        check["swap"] = {key: collect_files(ctx, swap.get(key, [])) for key in ("before", "after", "ui_before", "ui_after")}
+        baseline = presentation["experiment"]["checks"].get("PX02", {})
+        check["swap"]["core_fingerprint_before"] = swap.get("core_fingerprint_before") or baseline.get("core_fingerprint") or fingerprint
+    ctx.save("PRESENTATION.json", presentation)
+    ctx.log("present_check", check=cid, status=status, core_fingerprint=fingerprint,
+            evidence=[{"path": e["path"], "sha256": e["sha256"]} for e in entries])
+    data = snapshot(ctx)
+    return ["%s = %s" % (cid, status)] + ["PROBLEM: " + p for p in check_problems(ctx, cid, check, data)] if status == "PASS" else ["%s = %s" % (cid, status)]
+
+
+def present_compare(ctx: Context, status: str, evidence: List[Tuple[str, str]], reason: str = "") -> List[str]:
+    if status not in ("DONE", "UNAVAILABLE"):
+        raise ValueError("status must be DONE or UNAVAILABLE")
+    presentation = load_presentation(ctx)
+    entries = [evidence_entry(ctx.root, p, k or "comparison", "side-by-side with the original") for p, k in evidence]
+    comparison = presentation.setdefault("original_comparison", {})
+    if comparison.get("status") not in (None, "PENDING"):
+        comparison.setdefault("history", []).append({k: comparison.get(k) for k in ("status", "evidence", "reason")})
+    comparison.update(status=status, evidence=entries, reason=reason, utc=now_utc())
+    ctx.save("PRESENTATION.json", presentation)
+    ctx.log("present_compare", status=status, evidence=[{"path": e["path"], "sha256": e["sha256"]} for e in entries])
+    return ["Original comparison = %s%s" % (status, "" if status == "DONE" else " — presentation equivalence will be reported as not dynamically verified")]
 
 
 # ---------------------------------------------------------------- levels
@@ -1047,6 +1312,7 @@ def snapshot(ctx: Context) -> Dict[str, Any]:
     data["core"] = ctx.core_paths(state)
     data["fingerprint"] = ctx.fingerprint(data["core"])
     data["modules"] = reuse_index(data["reuse"])
+    data["presentation"] = ctx.load("PRESENTATION.json") if ctx.path("PRESENTATION.json").is_file() else None
     data["_item_errors"] = {}
     return data
 
@@ -1099,6 +1365,8 @@ def level_problems(ctx: Context, level: str, data: Dict[str, Any]) -> List[str]:
         elif domain not in OPTIONAL_DOMAINS and not any(item_counts(ctx, i, current, data["core"]) is None
                                                         and i.get("status") == "VERIFIED" for i in domain_items):
             problems.append("domain %s needs at least one VERIFIED capability (it cannot be entirely NOT_APPLICABLE or excluded)" % domain)
+    if target >= LEVELS.index("PRESENTATION_READY"):
+        problems += ["Presentation Reconstruction Gate: " + p for p in presentation_problems(ctx, data)]
     if target >= LEVELS.index("CREATOR_READY"):
         probe_problems, valid = probe_errors(ctx, data["probes"], data)
         required = data["probes"].get("required_probes", 2)
@@ -1403,7 +1671,8 @@ def probe_messages(ctx: Context, pid: str) -> List[str]:
 
 def probe_record(ctx: Context, pid: str, title: str, configs: List[str], assets: List[str],
                  evidence: Dict[str, List[Tuple[str, str]]], license_: str = "original_test_content",
-                 core_changes: Optional[List[str]] = None, shared: Optional[List[str]] = None) -> List[str]:
+                 core_changes: Optional[List[str]] = None, shared: Optional[List[str]] = None,
+                 scenes: Optional[List[str]] = None) -> List[str]:
     check_slug(pid, "Probe")
     probes = ctx.load("PROBES.json")
     replaces = {}
@@ -1414,8 +1683,8 @@ def probe_record(ctx: Context, pid: str, title: str, configs: List[str], assets:
     old = [p for p in probes.get("probes", []) if p.get("id") == pid]
     record = {"id": pid, "title": title or pid, "base_version": ctx.current_version(), "license": license_,
               "config_files": collect_files(ctx, configs), "asset_files": collect_files(ctx, assets),
-              "shared_files": collect_files(ctx, shared or []), "replaces": replaces,
-              "gameplay_changes": old[0].get("gameplay_changes", []) if old else [],
+              "shared_files": collect_files(ctx, shared or []), "scene_files": collect_files(ctx, scenes or []),
+              "replaces": replaces, "gameplay_changes": old[0].get("gameplay_changes", []) if old else [],
               "loop": old[0].get("loop") if old else None,
               "core_fingerprint": ctx.fingerprint(ctx.core_paths()),
               "core_changes_needed": list(core_changes or []), "recorded_utc": now_utc()}
@@ -1544,6 +1813,12 @@ def candidates(ctx: Context, data: Optional[Dict[str, Any]] = None) -> List[Dict
             action = "time-boxed research (%d of %d research tasks used)" % (count, limits["research_budget_per_item"])
         ranked.append({"id": item.get("id"), "name": item.get("name"), "score": score, "action": action,
                        "reasons": reasons, "problem": problem})
+    if level_index(next_level) == LEVELS.index("PRESENTATION_READY") and level_index(target) >= LEVELS.index("PRESENTATION_READY"):
+        gate = presentation_problems(ctx, data)
+        if gate:
+            ranked.append({"id": "presentation-reconstruction", "name": "Presentation Reconstruction Gate", "score": 11,
+                           "action": "study the original's scene composition and run the Base scene experiment: " + gate[0],
+                           "reasons": ["blocks PRESENTATION_READY"], "problem": gate[0]})
     if level_index(next_level) == LEVELS.index("CREATOR_READY") and level_index(target) >= LEVELS.index("CREATOR_READY"):
         problems, valid = probe_errors(ctx, data["probes"], data)
         if len(valid) < data["probes"].get("required_probes", 2) or problems:
@@ -1791,6 +2066,27 @@ def validate(root: Path, base_id: Optional[str] = None, strict: bool = False) ->
     warnings += w
     probe_problems, _ = probe_errors(ctx, data["probes"], data)
     warnings += probe_problems
+    presentation = data.get("presentation")
+    if presentation is None:
+        warnings.append("PRESENTATION.json is missing (records from before 1.2.0); run `gre.py upgrade` to add the presentation reconstruction study")
+    else:
+        if presentation.get("schema_version") != GRE_SCHEMA:
+            errors.append("PRESENTATION: unsupported schema_version")
+        items = {i.get("id"): i for i in data["parity"].get("items", []) if isinstance(i, dict)}
+        for tid in PR_TOPICS:
+            topic = presentation.get("study", {}).get(tid)
+            if not isinstance(topic, dict):
+                errors.append("PRESENTATION: study topic %s is missing (do not delete topics; use na_basis)" % tid)
+                continue
+            e, w = study_errors(ctx, tid, topic, items)
+            errors += e
+            warnings += w
+        for cid in PX_CHECKS:
+            check = presentation.get("experiment", {}).get("checks", {}).get(cid)
+            if not isinstance(check, dict) or check.get("status") not in ("PASS", "FAIL", "UNVERIFIED", "BLOCKED"):
+                errors.append("PRESENTATION: experiment check %s is missing or has an invalid status" % cid)
+            elif check.get("status") == "PASS":
+                warnings += ["Presentation experiment: " + p for p in check_problems(ctx, cid, check, data)]
     ids = []
     for gate in data["gates"].get("gates", []):
         if isinstance(gate, dict):
@@ -1816,7 +2112,7 @@ def validate(root: Path, base_id: Optional[str] = None, strict: bool = False) ->
     elif level_index(claimed) > level_index(derived):
         problems = level_problems(ctx, claimed, data)
         message = "Claimed %s but evidence supports %s: %s" % (claimed, derived, problems[0] if problems else "")
-        if version_tuple(claim_version) < version_tuple(SKILL_VERSION) and version_tuple(claim_version) < (1, 1):
+        if version_tuple(claim_version) < version_tuple(SKILL_VERSION):
             warnings.append(message + " (claim made under gre %s rules; re-verify under %s)" % (claim_version, SKILL_VERSION))
         else:
             errors.append(message)
@@ -1865,6 +2161,7 @@ def status_report(ctx: Context) -> str:
     stale = [i["id"] for i in items if (item_counts(ctx, i, data["current"], data["core"]) or "").startswith("stale")]
     probe_problems, valid = probe_errors(ctx, data["probes"], data)
     visual_only = [p.get("id") for p in data["probes"].get("probes", []) if isinstance(p, dict) and not p.get("gameplay_changes")]
+    gate = presentation_problems(ctx, data)
     lines = ["# Base %s@%s — reverse engineering (skill %s)" % (ctx.base_id, data["current"], SKILL_VERSION),
              "Target: %s | evidence supports: %s | claimed: %s (for %s)" % (state.get("target_level"), derived,
                                                                          state.get("claimed_level"), state.get("claimed_for_version") or "-"),
@@ -1876,6 +2173,8 @@ def status_report(ctx: Context) -> str:
              "Stale verifications (code changed): %d %s" % (len(stale), ", ".join(stale[:8])),
              "Discovery: " + ", ".join("%s=%s" % (s, ((data["parity"].get("discovery") or {}).get("sources", {}).get(s) or {}).get("status", "PENDING")) for s in DISCOVERY_SOURCES),
              "Creator probes: valid %d %s%s" % (len(valid), ", ".join(valid), (" | visual-only (not production evidence): " + ", ".join(visual_only)) if visual_only else ""),
+             "Presentation Reconstruction Gate: " + ("PASS" if not gate else "FAIL (%d open: %s)" % (len(gate), gate[0])),
+             "Presentation equivalence with the original: " + presentation_equivalence(data),
              "Core paths: %s (fingerprint %s)" % (", ".join(data["core"]) or "-", data["fingerprint"][:12] or "-"),
              "Assignment: %s" % (state.get("assignment", {}).get("agent_label") or "-"),
              "Checkpoint: %s — next: %s" % (state.get("checkpoint", {}).get("utc") or "-", state.get("checkpoint", {}).get("next_action"))]
@@ -1902,8 +2201,13 @@ def resume_report(ctx: Context) -> str:
 def handoff_check(ctx: Context) -> List[str]:
     problems = []
     handoff = ctx.path("BASE_HANDOFF.md")
-    if not handoff.is_file() or UNFILLED_MARKER in handoff.read_text(encoding="utf-8", errors="replace"):
+    content = handoff.read_text(encoding="utf-8", errors="replace") if handoff.is_file() else ""
+    if not content or UNFILLED_MARKER in content:
         problems.append("BASE_HANDOFF.md is missing or still the blank template")
+    for prompt in CREATOR_GUIDE:
+        answer = next((line.split(prompt, 1)[1].strip() for line in content.splitlines() if line.strip().startswith("- " + prompt)), "")
+        if not answer:
+            problems.append("BASE_HANDOFF.md creator guide must answer: " + prompt.rstrip("："))
     state = ctx.load("RE_STATE.json")
     if not text(state.get("checkpoint", {}).get("next_action")) or not text(state.get("checkpoint", {}).get("utc")):
         problems.append("no checkpoint with a next action (`gre.py checkpoint --next ...`)")
@@ -1945,6 +2249,22 @@ def write_report(ctx: Context) -> List[str]:
                 (item.get("differences") or item.get("scope_reason") or "—").replace("|", "/"),
                 "是" if item.get("reusable_for_new_games") else "否"))
         lines.append("")
+    gate = presentation_problems(ctx, data)
+    lines += ["## 表现系统重建（Presentation Reconstruction Gate）", "",
+              "- 门禁：%s" % ("通过" if not gate else "未通过（%d 项未完成）" % len(gate)),
+              "- 与原版的动态对照：" + presentation_equivalence(data), ""]
+    presentation = data.get("presentation") or {}
+    lines += ["| 调查项 | 内容 | 证据等级 | 证据数 | 可复用实现方式 |", "|---|---|---|---|---|"]
+    for tid in PR_TOPICS:
+        topic = presentation.get("study", {}).get(tid, {})
+        lines.append("| %s | %s | %s | %d | %s |" % (tid, topic.get("name", ""), topic.get("evidence_level", "—"),
+                     len(topic.get("refs", [])), (topic.get("reuse") or topic.get("na_basis") or "—").replace("|", "/")))
+    lines += ["", "| 实验 | 内容 | 状态 |", "|---|---|---|"]
+    for cid in PX_CHECKS:
+        check = presentation.get("experiment", {}).get("checks", {}).get(cid, {})
+        open_ = check_problems(ctx, cid, check, data) if check else ["missing"]
+        lines.append("| %s | %s | %s |" % (cid, check.get("name", ""), "PASS" if not open_ else (open_[0].split(": ", 1)[-1]).replace("|", "/")))
+    lines.append("")
     lines += ["## Creator 生产能力测试", ""]
     problems, valid = probe_errors(ctx, data["probes"], data)
     for probe in data["probes"].get("probes", []):
@@ -2084,6 +2404,28 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--evidence", action="append", default=[], help="category=path[:kind], categories: " + ",".join(PROBE_CATEGORIES))
     p.add_argument("--license", default="original_test_content")
     p.add_argument("--core-change", action="append", default=[])
+    p.add_argument("--scene", action="append", default=[], help="scene configuration files this probe assembles (PX01 schema)")
+    p = add("present", "Presentation reconstruction: study topics PR01-PR10, experiment checks PX01-PX08, original comparison")
+    p.add_argument("action", choices=("study", "check", "compare"))
+    p.add_argument("--id", default="", help="PR01..PR10 for study, PX01..PX08 for check")
+    p.add_argument("--level", choices=EVIDENCE_LEVELS)
+    p.add_argument("--status", default="")
+    p.add_argument("--evidence", action="append", default=[], help="path[:kind] (repeatable)")
+    p.add_argument("--observed", default="")
+    p.add_argument("--local", action="store_true")
+    p.add_argument("--gap")
+    p.add_argument("--items")
+    p.add_argument("--na-basis")
+    for field in STUDY_FIELDS:
+        p.add_argument("--" + field.replace("_", "-"))
+    p.add_argument("--bind", action="append", default=[], help="scene/layout/anchor files this check depends on")
+    p.add_argument("--resolution", action="append", default=[])
+    p.add_argument("--before", action="append", default=[])
+    p.add_argument("--after", action="append", default=[])
+    p.add_argument("--ui-before", action="append", default=[])
+    p.add_argument("--ui-after", action="append", default=[])
+    p.add_argument("--reason", default="")
+    p.add_argument("--note", default="")
     p = add("probe-gameplay", "Record a meaningful gameplay change made through configuration or extension interfaces")
     p.add_argument("--id", required=True)
     p.add_argument("--mechanic", required=True)
@@ -2183,7 +2525,24 @@ def main(argv: Optional[List[str]] = None) -> int:
                         raise ValueError("--evidence must be category=path[:kind] with category in " + ",".join(PROBE_CATEGORIES))
                     evidence.setdefault(category, []).append((path, kind))
                 output = probe_record(ctx, args.id, args.title, args.config, args.assets, evidence, args.license,
-                                      args.core_change, args.shared)
+                                      args.core_change, args.shared, args.scene)
+            elif args.command == "present":
+                specs = evidence_specs(args.evidence)
+                if args.action == "study":
+                    if len(specs) > 1:
+                        raise ValueError("present study takes one --evidence per call (history keeps every call)")
+                    path, kind = specs[0] if specs else (None, "")
+                    output = present_study(ctx, args.id, args.level, path, kind, args.observed, args.local, args.gap,
+                                           split(args.items), args.na_basis,
+                                           **{f: getattr(args, f) for f in STUDY_FIELDS})
+                elif args.action == "check":
+                    swap = None
+                    if args.before or args.after or args.ui_before or args.ui_after:
+                        swap = {"before": args.before, "after": args.after, "ui_before": args.ui_before, "ui_after": args.ui_after}
+                    output = present_check(ctx, args.id, args.status or "PASS", specs, args.bind, args.note,
+                                           args.resolution or None, swap)
+                else:
+                    output = present_compare(ctx, args.status, specs, args.reason)
             elif args.command == "probe-gameplay":
                 output = probe_gameplay(ctx, args.id, args.mechanic, split(args.items) or [], args.config, evidence_specs(args.evidence))
             elif args.command == "probe-loop":

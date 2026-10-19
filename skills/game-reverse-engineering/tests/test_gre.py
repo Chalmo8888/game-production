@@ -88,6 +88,41 @@ class Fixture(unittest.TestCase):
         self.discover_all()
         self.verify_group("logic")
 
+    def study_all(self, level="STATIC_ONLY"):
+        for tid in gre.PR_TOPICS:
+            ref = self.write("research/%s.txt" % tid, "render code listing %s\n" % tid)
+            gre.present_study(self.ctx(), tid, level=level, evidence=ref, kind="source", observed="render path traced in source",
+                              gap="not compared frame by frame with the running original", inputs="logic position in tiles",
+                              outputs="screen pixels", data_structures="Transform{x,y,sx,sy,rot,pivot,anchor,parent}",
+                              constraints="integer pixel snapping", unknowns="none known", reuse="REIMPLEMENT on the Base renderer")
+
+    def px(self, cid, kinds=None, bind=None, **kwargs):
+        kinds = kinds or [sorted(gre.PX_CHECKS[cid])[0]]
+        evidence = [(self.write("qa/present/%s-%d.png" % (cid, i), ("%s-%s-%d" % (cid, k, i)).encode()), k) for i, k in enumerate(kinds)]
+        bind = bind if bind is not None else [self.write("scenes/%s.json" % cid, '{"check": "%s"}' % cid)]
+        return gre.present_check(self.ctx(), cid, "PASS", evidence, bind, **kwargs)
+
+    def themes(self):
+        for theme in ("a", "b"):
+            self.write("themes/%s/art/ground.png" % theme, ("ground-" + theme).encode())
+            self.write("themes/%s/ui/panel.png" % theme, ("panel-" + theme).encode())
+        return {"before": ["themes/a/art"], "after": ["themes/b/art"], "ui_before": ["themes/a/ui"], "ui_after": ["themes/b/ui"]}
+
+    def present_ready(self, skip=()):
+        self.study_all()
+        scene_a = self.write("scenes/forest.json", '{"layers": ["bg", "ground", "actors", "fx", "ui"]}')
+        scene_b = self.write("scenes/cave.json", '{"layers": ["bg", "actors", "fg", "ui"]}')
+        anchors = self.write("scenes/anchors.json", '{"hero": {"pivot": [0.5, 1.0], "muzzle": [12, -20]}}')
+        plan = {"PX01": dict(kinds=["runtime-capture"], bind=[scene_a, scene_b]), "PX02": dict(kinds=["measurement"], bind=[anchors]),
+                "PX03": dict(kinds=["runtime-capture"]), "PX04": dict(kinds=["recording"]), "PX05": dict(kinds=["trace"]),
+                "PX06": dict(kinds=["measurement"], bind=[anchors]),
+                "PX07": dict(kinds=["measurement"], swap=self.themes()),
+                "PX08": dict(kinds=["measurement", "measurement"], resolutions=["1280x720", "1920x1080"])}
+        for cid, args in plan.items():
+            if cid not in skip:
+                self.px(cid, **args)
+        gre.present_compare(self.ctx(), "UNAVAILABLE", [], reason="the original's player stops at the loading bar")
+
     def probe(self, pid, seed, shared_from=None, share_visuals=0, gameplay=True, loop=True,
               gameplay_items=("L4-01", "C1-01"), loop_input="normal"):
         configs = self.write("probes/%s/config.json" % pid, json.dumps({"theme": seed}))
@@ -103,8 +138,9 @@ class Fixture(unittest.TestCase):
         for category in gre.PROBE_CATEGORIES:
             path = self.write("qa/probes/%s-%s.png" % (pid, category), ("%s-%s-%s" % (pid, category, seed)).encode())
             evidence[category] = [(path, "runtime-capture")]
+        scene = self.write("probes/%s/scene.json" % pid, json.dumps({"layers": ["bg", "actors", "ui"], "theme": seed}))
         messages = gre.probe_record(self.ctx(), pid, "原创测试配置 " + seed, [configs], [assets], evidence,
-                                    shared=["common/fonts"])
+                                    shared=["common/fonts"], scenes=[scene])
         if gameplay:
             clip = self.write("qa/probes/%s-gameplay.mp4" % pid, ("gameplay-%s" % seed).encode())
             messages += gre.probe_gameplay(self.ctx(), pid, "弹跳武器与波次节奏 " + seed, list(gameplay_items), [rules], [(clip, "recording")])
@@ -117,6 +153,7 @@ class Fixture(unittest.TestCase):
         self.logic_ready()
         self.verify_group("presentation")
         self.verify_group("creator")
+        self.present_ready()
         self.probe("probe-a", "冰原像素风")
         self.probe("probe-b", "沙漠水彩风")
 
@@ -203,6 +240,7 @@ class StartAndTakeoverTest(Fixture):
         gates = ctx.load("GATES.json")
         gates["gates"] = [g for g in gates["gates"] if g["id"] != "RE03"]
         ctx.save("GATES.json", gates)
+        ctx.path("PRESENTATION.json").unlink()
         state = ctx.load("RE_STATE.json")
         state["guards"] = {"research_streak_limit": 6, "polish_streak_limit": 5, "same_failure_limit": 3}
         state.update(claimed_level="LOGIC_READY", claimed_for_version="0.1.0",
@@ -218,6 +256,7 @@ class StartAndTakeoverTest(Fixture):
         after = self.ctx()
         self.assertEqual(after.load("PARITY.json")["items"], before_items)
         self.assertIn("RE03", [g["id"] for g in after.load("GATES.json")["gates"]])
+        self.assertTrue(after.path("PRESENTATION.json").is_file())
         self.assertIn("discovery", after.load("PARITY.json"))
         self.assertEqual(after.load("RE_STATE.json")["guards"]["research_budget_per_item"], 3)
         self.assertEqual(self.errors(), [])
@@ -433,18 +472,21 @@ class LevelTest(Fixture):
         self.logic_ready()
         self.verify_group("presentation")
         self.verify_group("creator")
+        self.present_ready()
         gre.set_level(self.ctx(), "PRESENTATION_READY")
         self.probe("probe-a", "冰原像素风")
         with self.assertRaisesRegex(ValueError, "valid: 1"):
             gre.set_level(self.ctx(), "CREATOR_READY")
         shutil.copytree(str(self.root / "probes/probe-a"), str(self.root / "probes/probe-copy"))
         evidence = {c: [("qa/probes/probe-a-%s.png" % c, "runtime-capture")] for c in gre.PROBE_CATEGORIES}
-        gre.probe_record(self.ctx(), "probe-copy", "copy", ["probes/probe-copy/config.json"], ["probes/probe-copy/assets"], evidence)
+        gre.probe_record(self.ctx(), "probe-copy", "copy", ["probes/probe-copy/config.json"], ["probes/probe-copy/assets"], evidence,
+                         scenes=["probes/probe-copy/scene.json"])
         gre.probe_gameplay(self.ctx(), "probe-copy", "same", ["L4-01"], ["probes/probe-copy/rules.json"], [("qa/probes/probe-a-gameplay.mp4", "recording")])
         gre.probe_loop(self.ctx(), "probe-copy", gre.LOOP_STEPS, "normal", [("qa/probes/probe-a-loop.mp4", "recording")])
         problems = gre.level_problems(self.ctx(), "CREATOR_READY", gre.snapshot(self.ctx()))
         self.assertTrue(any("visual assets are identical" in p for p in problems))
         self.assertTrue(any("gameplay configurations are identical" in p for p in problems))
+        self.assertTrue(any("scene configurations are identical" in p for p in problems))
         probes = self.ctx().load("PROBES.json")
         probes["probes"] = [p for p in probes["probes"] if p["id"] != "probe-copy"]
         self.ctx().save("PROBES.json", probes)
@@ -564,6 +606,121 @@ class LevelTest(Fixture):
         self.assertIn("能力等价矩阵报告", (self.root / first.split(": ")[1]).read_text(encoding="utf-8"))
 
 
+class PresentationTest(Fixture):
+    def presentation_items_ready(self):
+        self.start()
+        self.logic_ready()
+        self.verify_group("presentation")
+
+    def gate(self):
+        return gre.presentation_problems(self.ctx(), gre.snapshot(self.ctx()))
+
+    def test_asset_import_only_cannot_pass_presentation(self):
+        self.presentation_items_ready()
+        ref = self.write("research/PR01-only.txt", "camera code\n")
+        gre.present_study(self.ctx(), "PR01", level="STATIC_ONLY", evidence=ref, kind="source", observed="camera", gap="not run")
+        self.assertTrue(any(p.startswith("PR01: record inputs") for p in self.gate()), "evidence alone is not a finished study")
+        self.assertTrue(any("record the dynamic comparison" in p for p in self.gate()))
+        self.study_all()
+        gre.present_compare(self.ctx(), "UNAVAILABLE", [], reason="original cannot run")
+        with self.assertRaisesRegex(ValueError, "Presentation Reconstruction Gate: PX01"):
+            gre.set_level(self.ctx(), "PRESENTATION_READY")
+        self.assertEqual(gre.candidates(self.ctx())[0]["id"], "presentation-reconstruction")
+        self.assertIn("Presentation Reconstruction Gate: FAIL", gre.status_report(self.ctx()))
+        self.assertEqual(gre.derive_level(self.ctx()), "LOGIC_READY")
+
+    def test_static_scene_without_animation_and_event_binding_is_not_full_presentation(self):
+        self.presentation_items_ready()
+        self.present_ready(skip=("PX04", "PX05"))
+        problems = self.gate()
+        self.assertTrue(any(p.startswith("PX04") for p in problems))
+        self.assertTrue(any(p.startswith("PX05") for p in problems))
+        messages = self.px("PX05", kinds=["runtime-capture"])
+        self.assertTrue(any("needs measurement or trace evidence" in m for m in messages), "a screenshot does not prove event timing")
+        self.px("PX04", kinds=["recording"])
+        self.px("PX05", kinds=["trace"])
+        self.assertEqual(self.gate(), [])
+        gre.set_level(self.ctx(), "PRESENTATION_READY")
+
+    def test_single_fixed_screen_is_not_a_configurable_scene_system(self):
+        self.presentation_items_ready()
+        self.present_ready()
+        messages = self.px("PX01", kinds=["runtime-capture"], bind=[self.write("scenes/only.json", "{}")])
+        self.assertTrue(any("at least two different scene configurations" in m for m in messages))
+
+    def test_scene_coordinate_or_anchor_change_requires_new_evidence(self):
+        self.presentation_items_ready()
+        self.present_ready()
+        self.assertEqual(self.gate(), [])
+        gre.set_level(self.ctx(), "PRESENTATION_READY")
+        self.write("scenes/anchors.json", '{"hero": {"pivot": [0.5, 0.9], "muzzle": [12, -20]}}')
+        problems = self.gate()
+        self.assertTrue(any(p.startswith("PX02") and "anchor files changed" in p for p in problems))
+        self.assertTrue(any(p.startswith("PX06") for p in problems))
+        self.assertTrue(any("Claimed PRESENTATION_READY" in e for e in self.errors()))
+        anchors = "scenes/anchors.json"
+        self.px("PX02", kinds=["measurement"], bind=[anchors])
+        self.px("PX06", kinds=["measurement"], bind=[anchors])
+        self.assertEqual(self.gate(), [])
+        history = self.ctx().load("PRESENTATION.json")["experiment"]["checks"]["PX02"]["history"]
+        self.assertEqual(len(history), 1, "the earlier PX02 measurement is kept in history")
+
+    def test_new_assets_and_ui_theme_run_without_core_changes(self):
+        self.presentation_items_ready()
+        self.present_ready()
+        self.assertEqual(self.gate(), [])
+        same_art = {"before": ["themes/a/art"], "after": ["themes/a/art"], "ui_before": ["themes/a/ui"], "ui_after": ["themes/b/ui"]}
+        messages = self.px("PX07", kinds=["measurement"], swap=same_art)
+        self.assertTrue(any("record scene assets before and after the swap" in m for m in messages))
+        same_ui = {"before": ["themes/a/art"], "after": ["themes/b/art"], "ui_before": ["themes/a/ui"], "ui_after": ["themes/a/ui"]}
+        messages = self.px("PX07", kinds=["measurement"], swap=same_ui)
+        self.assertTrue(any("record UI theme files before and after the swap" in m for m in messages))
+        self.write("engine/core/sim.ts", "export const step = 1; // theme-specific hack\n")
+        messages = self.px("PX07", kinds=["measurement"], swap=self.themes())
+        self.assertTrue(any("swapping art must not need core edits" in m for m in messages))
+        self.assertTrue(any(p.startswith("PX02") and "engine core changed" in p for p in self.gate()))
+
+    def test_screenshots_alone_cannot_establish_engine_architecture(self):
+        self.start()
+        shot = self.write("research/original-title.png", b"screenshot")
+        with self.assertRaisesRegex(ValueError, "screenshots alone support at most INFERRED"):
+            gre.present_study(self.ctx(), "PR03", level="VERIFIED", evidence=shot, kind="screenshot", observed="layers visible")
+        with self.assertRaisesRegex(ValueError, "screenshots alone support at most INFERRED"):
+            gre.present_study(self.ctx(), "PR03", level="STATIC_ONLY", evidence=shot, kind="screenshot", observed="layers visible",
+                              gap="not traced")
+        gre.present_study(self.ctx(), "PR03", level="INFERRED", evidence=shot, kind="screenshot", observed="layers visible",
+                          gap="draw order inferred from two screenshots; not traced in code or at runtime",
+                          inputs="?", outputs="frame", data_structures="unknown", constraints="unknown",
+                          unknowns="sort key, batching", reuse="REIMPLEMENT with a data-driven layer graph")
+        self.assertFalse(any(p.startswith("PRESENTATION PR03") for p in gre.study_problems(self.ctx(), gre.snapshot(self.ctx()))))
+
+    def test_missing_dynamic_evidence_is_reported_not_hidden(self):
+        self.presentation_items_ready()
+        self.present_ready()
+        status = gre.status_report(self.ctx())
+        self.assertIn("Presentation Reconstruction Gate: PASS", status)
+        self.assertIn("NOT dynamically verified", status)
+        report = self.root / gre.write_report(self.ctx())[0].split(": ")[1]
+        self.assertIn("NOT dynamically verified", report.read_text(encoding="utf-8"))
+
+    def test_claims_made_before_the_gate_stay_readable(self):
+        self.presentation_items_ready()
+        state = self.ctx().load("RE_STATE.json")
+        state.update(claimed_level="PRESENTATION_READY", claimed_for_version="0.1.0")
+        state["level_history"].append({"utc": gre.now_utc(), "level": "PRESENTATION_READY", "skill_version": "1.1.0"})
+        self.ctx().save("RE_STATE.json", state)
+        self.ctx().path("PRESENTATION.json").unlink()
+        errors, warnings = gre.validate(self.root)
+        self.assertEqual(errors, [])
+        self.assertTrue(any("claim made under gre 1.1.0 rules" in w for w in warnings))
+        self.assertTrue(any("PRESENTATION.json is missing" in w for w in warnings))
+        self.assertEqual(gre.derive_level(self.ctx()), "LOGIC_READY")
+        gre.upgrade(self.ctx())
+        self.assertTrue(self.ctx().path("PRESENTATION.json").is_file())
+        if v4:
+            self.assertEqual(v4.validate_workspace(self.root)[0], [])
+
+
 class AutonomyAndHandoffTest(Fixture):
     def old(self, hours=3):
         return (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat().replace("+00:00", "Z")
@@ -652,6 +809,10 @@ class AutonomyAndHandoffTest(Fixture):
         gre.task_done(self.ctx(), "T-02", "blocked", "needs animation clip spec; see qa/notes.md")
         gre.checkpoint(self.ctx(), "agent-b: implement P3-01 transitions from DYNAMIC_STUDY section 4")
         self.ctx().path("BASE_HANDOFF.md").write_text("# Base 交接\n- 当前等级 NONE；下一步 P3-01。\n", encoding="utf-8")
+        problems = gre.handoff_check(self.ctx())
+        self.assertEqual(len([p for p in problems if "creator guide must answer" in p]), len(gre.CREATOR_GUIDE))
+        guide = "\n".join("- %s见 docs/creator/%d.md 与 scenes/*.json 示例" % (prompt, n) for n, prompt in enumerate(gre.CREATOR_GUIDE))
+        self.ctx().path("BASE_HANDOFF.md").write_text("# Base 交接\n- 当前等级 NONE；下一步 P3-01。\n\n## 后续游戏创作交接\n" + guide + "\n", encoding="utf-8")
         self.assertEqual(gre.handoff_check(self.ctx()), [])
         gre.assign(gre.Context(self.root), "agent-b", "E5")
         status = gre.status_report(self.ctx())

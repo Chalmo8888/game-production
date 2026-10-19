@@ -1,5 +1,26 @@
 # Changelog
 
+## game-reverse-engineering 1.2.0（2026-10-19，Presentation Reconstruction）
+这次是在现有表现规范（PRESENTATION_2D、P1–P8）基础上的深化，没有新建平行流程；数据格式仍是 `gre-1.0`，只做加法。
+- **新增 `re/PRESENTATION.json` 与 `gre.py present study|check|compare`。**
+- **10 项强制调查（PR01–PR10）**：坐标转换、变换层级与 Pivot/Anchor、绘制顺序、Sprite/Atlas/部件/时间轴绑定、动画状态与帧事件同步、脚点/阴影/挂点/发射点、场景装配与复用、粒子/混合/受击/环境特效、HUD/菜单/交互区/分辨率布局、资源加载/缓存/批处理/打包。
+  - 每项记录来源证据、输入输出、数据结构、约束、未知内容和可复用实现方式，并链接到相关的 P 条目。
+  - 只有截图时最多是 INFERRED；VERIFIED 需要动态证据，STATIC_ONLY 需要静态证据。
+- **8 项场景重建实验（PX01–PX08）**：在 Base 中用原创资产实测以下能力：
+  - 用多份场景配置组装分层场景；
+  - 对象定位；
+  - 遮挡与顺序；
+  - 动画播放；
+  - 关键帧触发攻击、发射和特效（需要时序证据）；
+  - 碰撞与视觉位置一致；
+  - 更换素材与 UI 主题而不改核心；
+  - 目标分辨率下的布局。
+  每项检查都绑定 Base 版本、核心指纹和场景/坐标/锚点文件的哈希，这些文件变化后检查自动过期，旧结果保留在 history 中。实验素材不能来自隔离材料。
+- **与原版的动态对照**：记为 DONE，或写明原因的 UNAVAILABLE。无法运行原版时，状态和报告会写明“NOT dynamically verified”，不能宣称与原版表现等价。
+- **Presentation Reconstruction Gate**：由工具推导，不能手动设为通过。它是 PRESENTATION_READY 的必要条件，也是 Creator Ready 的前提。Creator 测试配置还要用场景配置机制组装各自的场景（`probe --scene`），两套不能相同。`gre.py next` 会把未通过的门禁列为阻断 Presentation Ready 的高分项。
+- **后续游戏创作交接**：BASE_HANDOFF.md 新增 7 项必答内容：新增场景；修改背景、地形、前景和 UI；添加角色和动画；配置布局与层级；配置攻击、技能和特效挂点；更换视觉风格而不改战斗逻辑；已实现与待扩展的能力。`handoff` 会检查每一项都已填写。
+- **兼容性**：旧规则下做出的等级声明只给出提示；缺少 PRESENTATION.json 时会提示运行 `upgrade`，而 `upgrade` 只新增文件。v4 记录不受影响。
+
 ## game-reverse-engineering 1.1.0（2026-10-19，发布前补强）
 1.1.0 只做加法，数据格式仍是 `gre-1.0`：1.0.0 的记录可以直接读取，`gre.py upgrade` 只补字段，不改已有值。
 - **游戏特有能力发现**：38 个通用条目只是起始清单。新增 `gre.py discover`，要求从代码、运行、资源三类来源审查，结论为 DONE 或 UNAVAILABLE（须写原因）；新增 `parity add --source` 登记发现的条目，并附发现位置的证据。条目范围分为 core / optional / legacy / excluded，降级或排除都要写理由。三类来源都处理完才能达到 LOGIC_READY。

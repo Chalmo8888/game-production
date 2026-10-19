@@ -34,6 +34,8 @@
 ## 4. 与 Base 验证的对照
 原版动态证据与 Base 自身的运行时证据应当可以对照：同一场景、同一输入，比较不含渲染细节的状态摘要，或者对比测量值。对照结果作为 `comparison` 证据加入条目的 verification。
 
+画面层面的对照（图层顺序、对象定位、脚点、挂点、动画时序、特效触发、UI 布局）记录在 Presentation Reconstruction 中：用 `gre.py present compare --status DONE --evidence <对照录像或测量>`；原版无法合法运行时记为 `UNAVAILABLE` 并写原因。此时报告会写明“NOT dynamically verified”，不得宣称与原版表现等价（见 [PRESENTATION_2D 第 5 节](PRESENTATION_2D.md)）。
+
 ## 5. 证据管理
 - 原始录像和转储放在 `research-private/`（不进 Git）；可以共享的摘要、测量表和截图放在 `re/evidence/`，用 `gre.py evidence` 按时间戳存入，不覆盖旧文件。
 - 不上传原作资源，不在共享记录中写设备绝对路径。

@@ -1,3 +1,40 @@
+# 自身测试报告 — game-production 4.1.0 与 game-reverse-engineering 1.2.0
+
+## game-reverse-engineering 1.2.0：Presentation Reconstruction
+`python -m unittest discover -s skills/game-reverse-engineering/tests -v`：**39/39 通过**，没有跳过的测试。新增的 `PresentationTest` 共 8 项：
+
+| 场景 | 测试 | 验证内容 |
+|---|---|---|
+| 只支持资源导入、没有场景装配能力 | `test_asset_import_only_cannot_pass_presentation` | P1–P8 条目都已验证，但没有场景实验时拒绝 PRESENTATION_READY（等级停在 LOGIC_READY）；状态显示门禁 FAIL；`next` 的第一项是表现重建；只有证据、没填调查字段不算完成；未记录原版对照时被指出 |
+| 静态场景，缺少动画和事件绑定 | `test_static_scene_without_animation_and_event_binding_is_not_full_presentation` | PX04、PX05 缺失时门禁不通过；PX05 只有截图时被拒（截图证明不了时序）；补齐后通过 |
+| 只能复现一套固定画面 | `test_single_fixed_screen_is_not_a_configurable_scene_system` | PX01 只有一份场景配置时被拒 |
+| 场景坐标或锚点变化后必须更新证据 | `test_scene_coordinate_or_anchor_change_requires_new_evidence` | 锚点文件改动后 PX02、PX06 过期，原有声明报错；重新测量后通过，旧测量保留在 history 中 |
+| 新素材和 UI 主题不大改核心即可运行 | `test_new_assets_and_ui_theme_run_without_core_changes` | 换前与换后素材相同、UI 相同时分别被拒；为某个主题修改核心后，被判定为“换美术需要改核心” |
+| 截图不能当作引擎架构事实 | `test_screenshots_alone_cannot_establish_engine_architecture` | 只有截图时不能标 VERIFIED 或 STATIC_ONLY；可以标为 INFERRED，但必须说明缺口 |
+| 原版无法运行时如实标注 | `test_missing_dynamic_evidence_is_reported_not_hidden` | 门禁可以通过，但状态和报告都写明“NOT dynamically verified” |
+| 不破坏旧项目和既有门禁 | `test_claims_made_before_the_gate_stay_readable` | 1.1.0 规则下的 PRESENTATION_READY 声明、缺少 PRESENTATION.json 时只给出提示、不报错；`upgrade` 只新增文件；v4 的 validate 仍然通过 |
+
+另外：Creator 测试配置必须带场景配置，两套场景相同时被判定无效；交接检查逐项核对“后续游戏创作交接”的 7 项答案。原有的 31 个测试全部继续通过，其中 Creator、权利、交接相关的测试已按新规则补充了场景实验和交接内容。
+
+**变异检查**：用复制目录 + 对照组的方法，对 13 条新规则逐条改坏，对应测试都会失败。这 13 条是：
+- 门禁是 PRESENTATION_READY 的必要条件
+- PX01 需要两份场景配置
+- 布局和锚点文件变化后过期
+- 换主题不能改核心
+- 换主题必须换素材
+- 检查需要特定类型的证据
+- 截图不能作为 VERIFIED 的依据
+- 截图不能作为 STATIC_ONLY 的依据
+- 调查字段必须填写
+- 必须记录原版对照
+- 无法对照时必须如实报告
+- 创作交接必须作答
+- Creator 测试配置的场景不能相同
+
+首轮有 3 条未被抓到（换素材、调查字段、原版对照），已补充测试断言后全部抓到。
+
+---
+
 # 自身测试报告 — game-production 4.1.0 与 game-reverse-engineering 1.1.0
 
 - 审查日期：2026-10-19

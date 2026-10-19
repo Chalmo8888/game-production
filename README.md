@@ -6,7 +6,7 @@
 
 | Skill | 位置 | 版本 | 用途 |
 |---|---|---|---|
-| **game-reverse-engineering** | [`skills/game-reverse-engineering/`](skills/game-reverse-engineering/) | 1.1.0（新增） | 研究参考游戏，交付经过能力等价验证的 2D **Creator Ready Base** |
+| **game-reverse-engineering** | [`skills/game-reverse-engineering/`](skills/game-reverse-engineering/) | 1.2.0（新增） | 研究参考游戏，交付经过能力等价验证的 2D **Creator Ready Base** |
 | **game-production** | 仓库根目录（本页下半部分） | 4.1.0（稳定） | 工作区、版本化 Base、`games/<id>/` 多游戏全流程与门禁 |
 | game-creation-polish | 规划中 | — | 基于 Base 制作游戏与打磨（后续建设） |
 
@@ -42,7 +42,9 @@ python <临时目录>/skills/game-reverse-engineering/scripts/gre.py init --proj
 E0 技术调查（包括能否动态运行原作），当天就建立 Base 骨架 → E1 授权与复用判断（REUSE.json、RE01）
 → E2 源码与动态行为研究 → E3 在能力等价矩阵中覆盖全部 15 个能力域（不只是玩法，还包括动画、
 渲染、特效、UI、资源管线和音频），并从原版代码、运行行为和资源结构中发现模板之外的游戏特有能力
-→ E4 逻辑系统 → E5 2D 表现系统 → E6 Creator 生产能力测试：两套视觉明显不同的原创配置运行在同一个
+→ E4 逻辑系统 → E5 2D 表现系统重建（研究原作如何把资源、坐标、动画、渲染、UI 与玩法状态组合成画面，
+并在 Base 中用原创资产搭建可配置的代表性场景实测，通过 Presentation Reconstruction Gate）
+→ E6 Creator 生产能力测试：两套视觉明显不同的原创配置运行在同一个
 稳定核心上，各自通过配置做出有实际意义的玩法改动，并以正常输入跑通短小完整的循环 → E7 报告、
 交接和冻结 Base 版本。
 
@@ -73,7 +75,7 @@ PARITY/REPLACEMENT/EXTENSION 统计、主要差异与静态证据项、复用与
 权利状态、未完成项和下一步。现在开始实际工作，不要只回复计划。
 ```
 
-**交付等级**：Logic Ready（L1–L6 玩法、控制、AI、武器、关卡、存档 UI 全部验证）→ Presentation Ready（P1–P8 图集、逐帧/拆件/骨骼动画、状态与事件、分层渲染、特效阴影、资源管线、音画同步、性能全部有运行时或测量证据）→ Creator Ready（Base 的生产能力测试：两套视觉明显不同的原创配置运行在同一个稳定核心上，可以共用公共字体和基础资源；各自通过配置或扩展接口做出有实际意义的玩法改动，并以正常输入跑通短小完整的游戏循环。只换图片不算）。能力来源分为 PARITY / REPLACEMENT / EXTENSION，模板之外的游戏特有能力要主动发现。第三方代码许可、原作素材与具体表达的使用权、用户发布批准分别记录，技术测试不能使其通过。
+**交付等级**：Logic Ready（L1–L6 玩法、控制、AI、武器、关卡、存档 UI 全部验证）→ Presentation Ready（P1–P8 图集、逐帧/拆件/骨骼动画、状态与事件、分层渲染、特效阴影、资源管线、音画同步、性能全部有运行时或测量证据，并通过 Presentation Reconstruction Gate：研究原作的坐标变换、绘制顺序、动画绑定、挂点、场景装配、UI 布局与资源加载，在 Base 中用原创资产搭建可配置场景实测）→ Creator Ready（Base 的生产能力测试：两套视觉明显不同的原创配置运行在同一个稳定核心上，可以共用公共字体和基础资源；各自通过配置或扩展接口做出有实际意义的玩法改动，并以正常输入跑通短小完整的游戏循环。只换图片不算）。能力来源分为 PARITY / REPLACEMENT / EXTENSION，模板之外的游戏特有能力要主动发现。第三方代码许可、原作素材与具体表达的使用权、用户发布批准分别记录，技术测试不能使其通过。
 
 **其他入口**：[接管已有工程或 v4 Base](skills/game-reverse-engineering/prompts/TAKEOVER.md) · [跨会话/设备/Agent 接续](skills/game-reverse-engineering/prompts/RESUME.md) · [能力等价矩阵规则](skills/game-reverse-engineering/references/CAPABILITY_PARITY.md) · [三个实际项目的经验](skills/game-reverse-engineering/references/LESSONS.md)
 

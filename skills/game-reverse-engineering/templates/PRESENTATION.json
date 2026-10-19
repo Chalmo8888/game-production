@@ -1,0 +1,278 @@
+{
+  "schema_version": "gre-1.0",
+  "note": "Presentation Reconstruction：研究原作如何把资源、坐标、动画、渲染、UI 与玩法状态组合成最终画面（study），并在 Base 中用原创测试资产搭建代表性场景实际验证（experiment）。门禁由工具根据记录推导，是 PRESENTATION_READY 的必要条件。几张截图最多支持 INFERRED，不能当作引擎架构的事实。",
+  "study": {
+    "PR01": {
+      "name": "逻辑坐标到画面坐标的转换（世界单位、相机、视口、像素对齐）",
+      "evidence_level": "UNKNOWN",
+      "refs": [],
+      "dynamic_gap": "",
+      "inputs": "",
+      "outputs": "",
+      "data_structures": "",
+      "constraints": "",
+      "unknowns": "",
+      "reuse": "",
+      "items": [
+        "P4-03",
+        "P1-02"
+      ],
+      "na_basis": "",
+      "history": []
+    },
+    "PR02": {
+      "name": "对象位置、缩放、旋转、Pivot、Anchor 与变换层级",
+      "evidence_level": "UNKNOWN",
+      "refs": [],
+      "dynamic_gap": "",
+      "inputs": "",
+      "outputs": "",
+      "data_structures": "",
+      "constraints": "",
+      "unknowns": "",
+      "reuse": "",
+      "items": [
+        "P1-02",
+        "P2-02"
+      ],
+      "na_basis": "",
+      "history": []
+    },
+    "PR03": {
+      "name": "背景、地形、角色、特效和 UI 的绘制顺序与排序键",
+      "evidence_level": "UNKNOWN",
+      "refs": [],
+      "dynamic_gap": "",
+      "inputs": "",
+      "outputs": "",
+      "data_structures": "",
+      "constraints": "",
+      "unknowns": "",
+      "reuse": "",
+      "items": [
+        "P4-01",
+        "P4-02"
+      ],
+      "na_basis": "",
+      "history": []
+    },
+    "PR04": {
+      "name": "Sprite、Atlas、分部件动画与时间轴的实际绑定",
+      "evidence_level": "UNKNOWN",
+      "refs": [],
+      "dynamic_gap": "",
+      "inputs": "",
+      "outputs": "",
+      "data_structures": "",
+      "constraints": "",
+      "unknowns": "",
+      "reuse": "",
+      "items": [
+        "P1-01",
+        "P2-01",
+        "P2-02",
+        "P2-03"
+      ],
+      "na_basis": "",
+      "history": []
+    },
+    "PR05": {
+      "name": "动画状态、帧事件及其与玩法逻辑的同步",
+      "evidence_level": "UNKNOWN",
+      "refs": [],
+      "dynamic_gap": "",
+      "inputs": "",
+      "outputs": "",
+      "data_structures": "",
+      "constraints": "",
+      "unknowns": "",
+      "reuse": "",
+      "items": [
+        "P3-01",
+        "P3-02"
+      ],
+      "na_basis": "",
+      "history": []
+    },
+    "PR06": {
+      "name": "角色脚点、接触阴影、武器挂点和攻击发射点",
+      "evidence_level": "UNKNOWN",
+      "refs": [],
+      "dynamic_gap": "",
+      "inputs": "",
+      "outputs": "",
+      "data_structures": "",
+      "constraints": "",
+      "unknowns": "",
+      "reuse": "",
+      "items": [
+        "P2-02",
+        "P5-03"
+      ],
+      "na_basis": "",
+      "history": []
+    },
+    "PR07": {
+      "name": "地图与场景资源的装配和复用方式",
+      "evidence_level": "UNKNOWN",
+      "refs": [],
+      "dynamic_gap": "",
+      "inputs": "",
+      "outputs": "",
+      "data_structures": "",
+      "constraints": "",
+      "unknowns": "",
+      "reuse": "",
+      "items": [
+        "P4-01",
+        "L5-01"
+      ],
+      "na_basis": "",
+      "history": []
+    },
+    "PR08": {
+      "name": "粒子、透明混合、受击和环境特效",
+      "evidence_level": "UNKNOWN",
+      "refs": [],
+      "dynamic_gap": "",
+      "inputs": "",
+      "outputs": "",
+      "data_structures": "",
+      "constraints": "",
+      "unknowns": "",
+      "reuse": "",
+      "items": [
+        "P5-01",
+        "P5-02",
+        "P4-03"
+      ],
+      "na_basis": "",
+      "history": []
+    },
+    "PR09": {
+      "name": "HUD、菜单、交互区域和分辨率布局",
+      "evidence_level": "UNKNOWN",
+      "refs": [],
+      "dynamic_gap": "",
+      "inputs": "",
+      "outputs": "",
+      "data_structures": "",
+      "constraints": "",
+      "unknowns": "",
+      "reuse": "",
+      "items": [
+        "L6-02"
+      ],
+      "na_basis": "",
+      "history": []
+    },
+    "PR10": {
+      "name": "资源加载、缓存、批处理和打包",
+      "evidence_level": "UNKNOWN",
+      "refs": [],
+      "dynamic_gap": "",
+      "inputs": "",
+      "outputs": "",
+      "data_structures": "",
+      "constraints": "",
+      "unknowns": "",
+      "reuse": "",
+      "items": [
+        "P6-01",
+        "P8-02"
+      ],
+      "na_basis": "",
+      "history": []
+    }
+  },
+  "experiment": {
+    "scene_title": "",
+    "checks": {
+      "PX01": {
+        "name": "用配置构建分层场景（至少两种不同的场景结构）",
+        "status": "UNVERIFIED",
+        "evidence": [],
+        "bound_files": [],
+        "core_fingerprint": "",
+        "base_version": "",
+        "note": "",
+        "history": []
+      },
+      "PX02": {
+        "name": "不同尺寸对象的定位（坐标、Pivot、Anchor）",
+        "status": "UNVERIFIED",
+        "evidence": [],
+        "bound_files": [],
+        "core_fingerprint": "",
+        "base_version": "",
+        "note": "",
+        "history": []
+      },
+      "PX03": {
+        "name": "遮挡与渲染顺序",
+        "status": "UNVERIFIED",
+        "evidence": [],
+        "bound_files": [],
+        "core_fingerprint": "",
+        "base_version": "",
+        "note": "",
+        "history": []
+      },
+      "PX04": {
+        "name": "逐帧或分部件动画播放",
+        "status": "UNVERIFIED",
+        "evidence": [],
+        "bound_files": [],
+        "core_fingerprint": "",
+        "base_version": "",
+        "note": "",
+        "history": []
+      },
+      "PX05": {
+        "name": "动画关键时刻触发攻击、发射和特效",
+        "status": "UNVERIFIED",
+        "evidence": [],
+        "bound_files": [],
+        "core_fingerprint": "",
+        "base_version": "",
+        "note": "",
+        "history": []
+      },
+      "PX06": {
+        "name": "逻辑碰撞位置与视觉位置一致",
+        "status": "UNVERIFIED",
+        "evidence": [],
+        "bound_files": [],
+        "core_fingerprint": "",
+        "base_version": "",
+        "note": "",
+        "history": []
+      },
+      "PX07": {
+        "name": "更换场景资源和 UI 主题（核心不变，脚点、碰撞和交互位置仍然正确）",
+        "status": "UNVERIFIED",
+        "evidence": [],
+        "bound_files": [],
+        "core_fingerprint": "",
+        "base_version": "",
+        "note": "",
+        "history": []
+      },
+      "PX08": {
+        "name": "目标分辨率下布局与操作正确",
+        "status": "UNVERIFIED",
+        "evidence": [],
+        "bound_files": [],
+        "core_fingerprint": "",
+        "base_version": "",
+        "note": "",
+        "history": []
+      }
+    }
+  },
+  "original_comparison": {
+    "status": "PENDING",
+    "evidence": [],
+    "reason": ""
+  }
+}

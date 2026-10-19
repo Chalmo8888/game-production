@@ -7,6 +7,7 @@
 - **通用条目**：模板预置 38 个（`origin: template`）。它们只是起始检查清单，不是能力上限。
 - **游戏特有条目**：从原版代码、运行行为和资源结构中发现的独特机制（`origin: discovered`，ID 形如 `L5-04`），用 `gre.py parity add --source code|runtime|assets --evidence <发现位置>` 加入。
 - **原创扩展条目**：为今后创作新增的通用能力（`origin: extension`，类别固定为 EXTENSION）。
+- **表现系统重建**：P 域条目说明 Base“有什么表现能力”；原作“怎样把资源、坐标、动画、渲染、UI 与玩法状态组合成画面”的调查（PR01–PR10）和场景实验（PX01–PX08）记录在 `re/PRESENTATION.json` 中，每个调查项都链接到相关的 P 条目，门禁规则见 [PRESENTATION_2D 第 5 节](PRESENTATION_2D.md)。
 - **发现记录**：`discovery.sources.code / runtime / assets` 的状态为 PENDING / DONE / UNAVAILABLE（必须写原因），并附审查证据和发现的条目（`gre.py discover`）。三类来源都完成或注明无法获得，才能达到 LOGIC_READY。
 
 ## 2. 条目字段

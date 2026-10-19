@@ -2,11 +2,11 @@
 name: game-reverse-engineering
 description: 面向 2D 游戏、与 Agent 无关、支持无人值守的逆向与 Base 建设 Skill。输入游戏链接、开源仓库或已有工程，由单个 Agent 自主完成技术调查、授权与复用判断、源码与动态行为研究、通用与游戏特有能力的完整提取、合法复用或独立实现、逻辑与 2D 表现系统建设、自动验证和返工，交付经过能力等价矩阵与 Creator 生产能力测试验证的 Creator Ready Base。与 game-production v4 的工作区、Base 版本和交接机制兼容。
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   language: "zh-CN"
   companion: "game-production >= 4.1.0（可选；本 Skill 可独立运行）"
 ---
-# Game Reverse Engineering · v1.1.0 — 从参考游戏到 Creator Ready Base
+# Game Reverse Engineering · v1.2.0 — 从参考游戏到 Creator Ready Base
 
 ## 1. 目标与原则
 把一款参考游戏（链接、开源仓库、已有工程）研究透，并建成一个**可以反复用来做新游戏的 2D Base**。只要授权范围和执行环境允许，一个 Agent 就能独立完成全程。
@@ -35,7 +35,7 @@ metadata:
 | E2 源码与行为研究 | 分层静态提取 + 原版动态观测（[研究](references/RESEARCH.md)、[动态行为](references/DYNAMIC_BEHAVIOR.md)） | 条目的原版证据等级与 dynamic_gap 如实填写 |
 | E3 完整能力提取 | 15 个能力域的通用条目 + **游戏特有能力发现**（代码、运行、资源三类来源），确定 core / optional / legacy / excluded | 三类来源都已审查（或注明无法获得的原因），特有能力已入矩阵 |
 | E4 逻辑系统建设 | 复用、适配或独立实现，组件化、数据驱动（[规范](references/LOGIC_REBUILD.md)） | LOGIC_READY |
-| E5 表现系统建设 | 图集、逐帧/拆件/骨骼动画、状态与事件、分层排序、特效阴影、资源管线、音画同步、性能（[表现](references/PRESENTATION_2D.md)、[管线](references/ASSET_ANIMATION_PIPELINE.md)） | PRESENTATION_READY |
+| E5 表现系统重建 | 研究原作如何把资源、坐标、动画、渲染、UI 与玩法状态组合成画面（PR01–PR10），在 Base 中用原创资产搭建代表性场景并实测（PX01–PX08）：图集、逐帧/拆件/骨骼动画、状态与事件、分层排序、特效阴影、资源管线、音画同步、性能、分辨率布局（[表现与 Presentation Reconstruction](references/PRESENTATION_2D.md)、[管线](references/ASSET_ANIMATION_PIPELINE.md)） | Presentation Reconstruction Gate 通过 → PRESENTATION_READY |
 | E6 Creator 生产能力测试 | 两套原创测试配置：视觉明显不同、各有真实的玩法改动、都能跑通一个短小完整的循环，并且运行在同一个未修改的核心上 | CREATOR_READY |
 | E7 交付 | 矩阵报告、Base 交接、冻结版本、映射 v4 门禁 | `handoff` COMPLETE |
 
@@ -62,7 +62,7 @@ metadata:
 | 等级 | 要求（由 `gre.py level --set` 和 `validate` 核对） |
 |---|---|
 | LOGIC_READY | RE01 PASS；特有能力发现已完成；L1–L6 全部 core 条目满足要求 |
-| PRESENTATION_READY | + P1–P8 全部 core 条目满足要求，每个域至少一个 VERIFIED，表现证据为运行时或测量 |
+| PRESENTATION_READY | + P1–P8 全部 core 条目满足要求，每个域至少一个 VERIFIED，表现证据为运行时或测量；**Presentation Reconstruction Gate 通过**：10 项调查有真实证据，8 项场景实验在当前核心和当前场景配置上 PASS，并保存了截图、动画序列和测量结果，与原版的动态对照已记录（无法运行时如实标明“缺少动态证据”） |
 | CREATOR_READY | + C1 满足要求；两套有效的 Creator 生产能力测试配置；core 能力可供新游戏使用 |
 
 **Creator 生产能力测试**（不是提前制作 Game 01，详见验收规则）的每套配置都必须满足：
@@ -72,7 +72,7 @@ metadata:
 - 资产替换、玩法改动和完整循环都有运行时证据。
 - 两套配置运行在指纹相同的核心上，不需要为第二套大幅重写核心。
 
-只换图片、没有玩法改动的配置，不能证明完整的生产能力。
+只换图片、没有玩法改动的配置，不能证明完整的生产能力。每套配置还必须用 Base 的场景配置机制组装自己的场景（`probe --scene`），两套的场景文件不能相同。
 
 **权利（三项独立记录，都不由技术测试决定）**：
 - RE01：第三方代码与组件的复用许可。
@@ -115,6 +115,7 @@ metadata:
 
 ## 7. 跨 Agent、跨会话、跨设备
 - 任何 Agent 都可以接手：用 `assign` 记录分工；交接前填写 `re/BASE_HANDOFF.md`，用 `checkpoint` 记录下一步，并运行 `handoff`（不能有未关闭的 ACTIVE 任务）。
+- 交接资料中的“后续游戏创作交接”必须具体说明：怎样新增场景，怎样修改背景、地形、前景和 UI，怎样添加角色和动画，怎样配置布局与层级，怎样配置攻击、技能及特效挂点，怎样更换视觉风格而不改战斗逻辑，以及哪些已实现、哪些仍需扩展。`handoff` 会检查每一项都有答案。不要求制作正式商业美术或 Game 01。
 - 新会话或新设备运行 `resume`；同一时刻一个工作树只有一个写入者，需要并行时使用分支或独立工作树。
 - 隔离的研究原件放在被 Git 忽略的 `research-private/`，引用时标为本地研究资料，换设备后缺失只给出警告。
 - 继承 game-production v4 的权限范围、Base 版本、依赖游戏回归和 Git 检查点规则（[与 v4 的关系](references/V4_INTEGRATION.md)）。
@@ -130,6 +131,10 @@ gre.py reuse --module <id> --decision KEEP --license MIT --evidence <LICENSE> --
 gre.py probe --id probe-a --config <file> --assets <dir> --shared <common dir> --evidence character=<capture> ...
 gre.py probe-gameplay --id probe-a --mechanic "..." --items L4-01,C1-01 --config <rules> --evidence <clip>
 gre.py probe-loop --id probe-a --covers start,play,win,result,restart --evidence <recording>
+gre.py present study --id PR03 --level STATIC_ONLY --evidence <file>:source --gap "..." --inputs ... --outputs ... --data-structures ... --constraints ... --unknowns ... --reuse ...
+gre.py present check --id PX02 --status PASS --evidence <measure>:measurement --bind scenes/anchors.json
+gre.py present check --id PX07 --evidence <measure>:measurement --before <art A> --after <art B> --ui-before <ui A> --ui-after <ui B>
+gre.py present compare --status DONE|UNAVAILABLE --evidence <comparison> --reason "..."
 gre.py level --set LOGIC_READY|PRESENTATION_READY|CREATOR_READY
 gre.py task start|done|recover · checkpoint · assign · evidence · gate (RE01/RE02/RE03 --role ...)
 ```
