@@ -21,7 +21,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Dict, List, Optional, Tuple
 
 KIT_ROOT = Path(__file__).resolve().parent.parent
-KIT_VERSION = "4.0.0"
+KIT_VERSION = "4.1.0"
 SCHEMA_VERSION = "3.0"
 LEGACY_SCHEMA_VERSION = "2.0"
 SKILL_PATH = ".agents/skills/game-production"

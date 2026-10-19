@@ -1,0 +1,63 @@
+{
+  "schema_version": "3.0",
+  "kit_version": "4.1.0",
+  "workspace_id": "TO_BE_SET",
+  "name": "待确认的生产工作区",
+  "layout": {
+    "games_dir": "games",
+    "base_records_dir": ".production/bases",
+    "research_records_dir": ".production/research"
+  },
+  "intake": {
+    "status": "NOT_STARTED",
+    "route": "",
+    "notes": ""
+  },
+  "research": [],
+  "bases": [],
+  "games": [],
+  "focus": {
+    "research": "",
+    "base": "",
+    "game": "",
+    "stage": "R0",
+    "task": ""
+  },
+  "run": {
+    "mode": "auto",
+    "allowed_stages": ["R0", "R1", "R2", "G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7"],
+    "status": "NEW",
+    "stop_reason": "",
+    "active_session": "",
+    "scope": {
+      "target": "full_pipeline",
+      "required_readiness": "RELEASE_CANDIDATE",
+      "game_quota": 1,
+      "games": [],
+      "basis": ""
+    },
+    "scope_history": []
+  },
+  "permissions": {
+    "project_local_changes": true,
+    "local_tests_and_build": true,
+    "local_commits": true,
+    "remote_push": {
+      "allowed": false,
+      "repository": "",
+      "branches": []
+    },
+    "public_deploy": false,
+    "production_changes": false,
+    "paid_tools": {
+      "allowed": false,
+      "service_limits": []
+    },
+    "external_scheduler": false
+  },
+  "last_checkpoint_utc": "",
+  "next_action": "R0: identify the user's final goal, references, platform, rights boundary, existing project and available tools; choose route new_research / adopt_existing / new_game_on_base.",
+  "notes": [
+    "Workspace facts only. Base records live in .production/bases/<id>/, each game in games/<id>/.production/. Device paths and credentials belong in ignored .production/local/."
+  ]
+}

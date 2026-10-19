@@ -1,0 +1,8 @@
+{
+  "schema_version": "gre-1.0",
+  "tier": "reverse_engineering",
+  "gates": [
+    {"id": "RE01", "name": "授权与复用评估完成", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "evidence": [], "blocker": "", "next_action": "REUSE.json 覆盖参考对象的全部主要模块，没有 REVIEW 项；KEEP/ADAPT 有许可证据，QUARANTINE 已隔离。"},
+    {"id": "RE02", "name": "商业发行许可", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "external_approval"}, "subject_revision": "", "evidence": [], "blocker": "", "next_action": "只能由用户、权利人或其授权的法务给出批准记录；技术测试与 Agent 自审都不能使其通过。"}
+  ]
+}

@@ -11,6 +11,8 @@
 把用户原话记入 `run.scope.basis`，并确定 target 与 game_quota。
 出口：路线、授权范围和第一批可执行任务清楚。不把“参考成熟机制”变成从零编一个贫乏 Demo。
 
+> R1–R2 的深度执行可以交给独立 Skill [game-reverse-engineering](../skills/game-reverse-engineering/SKILL.md)：它把本节要求细化为 E0–E7 阶段、15 个能力域的等价矩阵和 Logic / Presentation / Creator Ready 等级，并与本工作区格式兼容。
+
 ## R1 Research & Reverse Engineering（按需）
 优先使用用户已有的文件和有效研究，再查外部公开资料。准确说明读取到的是原始源码、反编译恢复物、格式化 bundle 还是独立实现。
 研究范围按需选择：源码和程序结构、机制与状态机、数值与配置、单位/敌人/角色行为、关卡结构、动画与资源管线、原版运行行为、技术依赖、商业授权边界。

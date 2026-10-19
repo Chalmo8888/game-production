@@ -2,10 +2,10 @@
 name: game-production
 description: 面向独立开发者和团队的可移植游戏生产 Skill。研究一次成熟游戏机制并完成来源审查，建立可复用的游戏 Base，然后在 games/<id>/ 下为每款新游戏独立执行游戏策划、美术策划、开发、美术音频、QA、返工和发行候选打包，连续生产 Game 01…N。支持单/多 Agent、跨会话、跨设备、无人值守接续，不绑定平台、引擎、模型或软件。
 metadata:
-  version: "4.0.0"
+  version: "4.1.0"
   language: "zh-CN"
 ---
-# Game Production · v4.0.0 — 研究一次，复用 Base，连续生产多款游戏
+# Game Production · v4.1.0 — 研究一次，复用 Base，连续生产多款游戏
 
 ## 1. 核心原则
 整个生产分成两个循环：
@@ -61,6 +61,8 @@ metadata:
 | G7 下一款 | 记录用到的 Base 版本、可复用能力、资产和 QA 经验、兼容问题、已反哺 Core 的改动 | retrospective 写完后可以启动下一款 |
 
 阶段不是瀑布：QA 贯穿全程，证据仍有效的阶段直接复用，缺口回到相关阶段。G1 和 G2 要在大量内容开发和批量美术之前完成。
+
+R0–R2 需要深度逆向和 2D Base 建设时，使用同仓库的独立 Skill [game-reverse-engineering](skills/game-reverse-engineering/SKILL.md)。它在同一个工作区中维护能力等价矩阵和 Logic / Presentation / Creator Ready 等级，记录放在 `.production/bases/<id>/re/`，不修改本 Skill 的 Base 和游戏记录；达到目标后，按它的报告更新 B01、B03–B08，再声明 BASE_READY。
 
 ## 5. Base 与多游戏规则
 - **Base 就绪度**：RESEARCH_READY 表示研究成果已整理；BASE_READY 表示可用于开发新游戏；COMMERCIAL_BASE_CANDIDATE 表示代码来源与技术条件已初步满足商用要求，但法律审核可能仍未完成。BASE_READY 不意味着原版代码已全部逆向，也不意味着某款商业游戏已经完成。
@@ -125,7 +127,7 @@ BASE_READY ≠ GAME_READY ≠ PUBLICATION_APPROVED。Base 通过测试，不代�
 外部命令和依赖安装先确认来源和影响。不执行未知仓库的安装脚本，不获取私有服务端源码，不绕过登录、付费或访问限制，不泄露凭据。G6 读取目标平台的真实规范；规范未知时只阻断该平台的发布验收，不阻断本地候选包。许可证要求附带的源码或声明不得删除。
 
 ## 11. 入口与工具
-启动提示词（均可直接复制）：[研究并建立 Base](prompts/START_RESEARCH.md)、[一次性完整生产](prompts/START_FULL_PIPELINE.md)、[基于 Base 新建游戏](prompts/START_NEW_GAME.md)、[继续某款游戏](prompts/CONTINUE_GAME.md)、[只做美术音频](prompts/ART_PRODUCTION.md)、[独立审查](prompts/REVIEW_GAME.md)、[跨设备/会话接续](prompts/RESUME.md)、[批量生产](prompts/BATCH_PRODUCTION.md)、[接管已有工程](prompts/ADOPT_EXISTING.md)、[指定阶段](prompts/STAGE.md)、[交接](prompts/HANDOFF.md)。
+启动提示词（均可直接复制）：[深度逆向与 Creator Ready Base（独立 Skill）](skills/game-reverse-engineering/prompts/START.md)、[研究并建立 Base](prompts/START_RESEARCH.md)、[一次性完整生产](prompts/START_FULL_PIPELINE.md)、[基于 Base 新建游戏](prompts/START_NEW_GAME.md)、[继续某款游戏](prompts/CONTINUE_GAME.md)、[只做美术音频](prompts/ART_PRODUCTION.md)、[独立审查](prompts/REVIEW_GAME.md)、[跨设备/会话接续](prompts/RESUME.md)、[批量生产](prompts/BATCH_PRODUCTION.md)、[接管已有工程](prompts/ADOPT_EXISTING.md)、[指定阶段](prompts/STAGE.md)、[交接](prompts/HANDOFF.md)。
 
 辅助命令（Python 3.9+，仅标准库，Windows/macOS/Linux 通用）：
 

@@ -1,0 +1,5 @@
+{
+  "schema_version": "gre-1.0",
+  "note": "可复用代码评估（机器记录）。每个模块：KEEP / ADAPT / REPLACE / QUARANTINE / REVIEW。KEEP/ADAPT 需要许可证据；QUARANTINE 不得进入 Base 核心路径；REVIEW 未解决前不能被复用。",
+  "modules": []
+}

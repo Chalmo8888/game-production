@@ -1,5 +1,23 @@
 # Changelog
 
+## 仓库 2026-10-19：新增 game-reverse-engineering 1.0.0；game-production 4.1.0
+仓库变为多 Skill 结构。根目录仍然是 game-production，新的独立 Skill 放在 `skills/` 下。
+
+**game-reverse-engineering 1.0.0（新增，`skills/game-reverse-engineering/`）**
+- 面向 2D 游戏的逆向与 Base 建设：E0 技术调查 → E1 授权与复用判断 → E2 源码与动态行为研究 → E3 完整能力提取 → E4 逻辑系统 → E5 2D 表现系统 → E6 Creator 验证 → E7 交付。单个 Agent 可以独立完成。
+- 能力等价矩阵（`re/PARITY.json`）覆盖 15 个能力域、38 个预置条目，并区分原版证据等级与 Base 能力状态。只有带测试、运行时或测量证据的 VERIFIED 才计入等级；INTERFACE_ONLY 和 DOCUMENTED 不计入；表现类条目必须有运行时或测量证据。
+- 交付等级 LOGIC_READY → PRESENTATION_READY → CREATOR_READY。Creator Ready 要求两套差异明显的原创测试配置（文件哈希不重叠）运行在指纹相同的核心上。权利另设门禁：来源审查用 v4 B02，商业许可 RE02 只接受外部批准。
+- 复用评估（`re/REUSE.json`，门禁 RE01）：KEEP/ADAPT 需要许可证据；反编译原作代码没有书面授权时只能 QUARANTINE；隔离材料不得进入核心路径，也不能作为实现来源。
+- 无人值守与恢复：任务超时（STALLED）、重复失败、研究空转、打磨空转四种防护；证据和报告按时间戳另存，HISTORY.jsonl 只追加，删改历史会被发现；提供检查点、接续、交接检查和 Agent 分工记录。
+- 规则吸收了《二战前线》《植物大战僵尸》《勇者之路》三个项目的经验，证据与推断分开标注（`references/LESSONS.md`）。
+- `gre.py` 只用标准库，可以在空文件夹、已有工程或 v4 工作区上初始化；在 v4 工作区上只新增 `re/` 记录，v4 文件保持字节不变。
+- 21 个自动化测试，并对 4 个关键防护做了变异检查。
+
+**game-production 4.1.0**
+- 版本号更新为 4.1.0（`kit_version`）；R0–R2、SKILL.md、START_RESEARCH 和 README 中增加指向 game-reverse-engineering 的入口。旧入口全部保留。
+- 根目录 `SHA256SUMS.txt` 只覆盖 game-production 自身的发布文件，不包含 `skills/`，避免 v4 `init` 把其他 Skill 嵌套安装进项目。
+- README 改为多 Skill 首页，直接提供 game-reverse-engineering 的完整启动提示词。
+
 ## v4.0.0 (2026-10-19)
 结构性升级：从“单款游戏全流程”升级为“一个研究基座连续生产多款独立游戏”。v3 的能力全部保留：Agent 不绑定、自动推进、无人值守、严格门禁、跨设备、状态持久化、来源审查、接管已有项目、独立 QA 与返工、权限限制。
 

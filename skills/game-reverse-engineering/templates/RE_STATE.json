@@ -1,0 +1,29 @@
+{
+  "schema_version": "gre-1.0",
+  "skill_version": "1.0.0",
+  "base_id": "TO_BE_SET",
+  "target_level": "CREATOR_READY",
+  "core_paths": [],
+  "content_paths": [],
+  "claimed_level": "NONE",
+  "claimed_for_version": "",
+  "level_history": [],
+  "assignment": {
+    "agent_label": "",
+    "scope": "",
+    "since_utc": ""
+  },
+  "tasks": [],
+  "task_log": [],
+  "checkpoint": {
+    "utc": "",
+    "next_action": "E0: technical survey of the reference (stack, runnable build, dynamic run possibility, rights inventory).",
+    "resume_command": "",
+    "note": ""
+  },
+  "guards": {
+    "research_streak_limit": 6,
+    "polish_streak_limit": 5,
+    "same_failure_limit": 3
+  }
+}

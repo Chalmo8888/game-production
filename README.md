@@ -1,10 +1,84 @@
-# Game Production Skill v4
+# Game Production Skills
 
 **研究一次成熟游戏机制，建立可复用 Base，之后通过独立的游戏策划、美术规划和制作循环，连续生产不同的游戏。**
+
+这个仓库包含多个相互独立、可以单独安装的 Skill，都不绑定特定的 Agent、模型、引擎或设备：
+
+| Skill | 位置 | 版本 | 用途 |
+|---|---|---|---|
+| **game-reverse-engineering** | [`skills/game-reverse-engineering/`](skills/game-reverse-engineering/) | 1.0.0（新增） | 研究参考游戏，交付经过能力等价验证的 2D **Creator Ready Base** |
+| **game-production** | 仓库根目录（本页下半部分） | 4.1.0（稳定） | 工作区、版本化 Base、`games/<id>/` 多游戏全流程与门禁 |
+| game-creation-polish | 规划中 | — | 基于 Base 制作游戏与打磨（后续建设） |
+
+两个 Skill 共用同一种项目记录格式：先用 game-reverse-engineering 建 Base，再用 game-production 基于它做游戏。已有的 game-production 项目和入口继续有效。
+
+## 🔬 逆向与 Base：最快开始（game-reverse-engineering）
+
+在新设备、新 Agent、空文件夹中，只需要提供**目标游戏链接、Skill 链接和交付目标**。替换【】中的内容后整段发送：
+
+```text
+请使用 Game Reverse Engineering Skill，研究下面的参考游戏，并交付一个可复用的 2D 游戏 Base。
+
+参考游戏（链接、开源仓库或本地工程路径）：
+【粘贴链接或路径】
+
+Skill 仓库：
+https://github.com/Chalmo8888/game-production
+（使用仓库中的 skills/game-reverse-engineering 目录；根目录的 game-production 是另一个 Skill）
+
+研究与 Base 交付目标：
+【例如：研究这款横版射击游戏，交付 Creator Ready 的 H5 Base：保留或提升原版的手感、敌人与 Boss、
+武器、关卡事件、拆件动画、特效、UI 和资源管线，并用两套原创测试配置证明可以换角色、动画、单位、
+地图和视觉风格。不需要正式游戏和商业级美术。】
+
+获取并加载 Skill：如果当前项目已有 .agents/skills/game-reverse-engineering/，以它为准；否则把上面的
+仓库克隆或下载到项目之外的临时目录，阅读 skills/game-reverse-engineering/SKILL.md，然后运行
+python <临时目录>/skills/game-reverse-engineering/scripts/gre.py init --project <当前目录>
+--code-path <Base 代码目录> --core-path <引擎核心目录> --reference <参考链接> --basis "<我的原话>"
+它会把 Skill 固定安装到当前项目，并创建与 game-production v4 兼容的记录，不覆盖已有文件。
+已有工程或 v4 项目按 prompts/TAKEOVER.md 接管；之后每次开始先运行 gre.py resume。
+
+按 SKILL.md 的 E0–E7 推进，由你一个 Agent 完成全部工作，不需要等待其他 Agent：
+E0 技术调查（包括能否动态运行原作），当天就建立 Base 骨架 → E1 授权与复用判断（REUSE.json、RE01）
+→ E2 源码与动态行为研究 → E3 在能力等价矩阵中覆盖全部 15 个能力域（不只是玩法，还包括动画、
+渲染、特效、UI、资源管线和音频）→ E4 逻辑系统 → E5 2D 表现系统 → E6 两套原创测试配置的
+Creator 验证 → E7 报告、交接和冻结 Base 版本。
+
+能合法复用的成熟代码和系统优先直接复用；不能合法复用的才独立实现；已有能力不足的要优化。
+不要求照搬原版源码，也不要做低配模拟品。没有使用权利的反编译代码和原作资源只放在被忽略的
+research-private/ 中研究，不进入 Base。研究必须服务于矩阵中的缺口，并设时间盒。
+只有带测试、运行时录制或测量证据的 VERIFIED 才算完成，只有接口或文档的不算。
+Logic Ready ≠ Presentation Ready ≠ Creator Ready；来源与商业许可另设门禁，技术测试不能使其通过。
+
+【无人值守执行规则】
+开始调查并执行，直到达到当前授权范围内可验证的交付目标，或遇到无法自行解决的真实外部阻断。
+只要执行环境允许、授权与预算范围内仍有有价值且可执行的工作，就继续研究、设计、实现、测试、
+检查、返工和扩展。不要因为完成一个小版本、研究文档或演示程序就主动停止。优先解决对 Base 能力
+和可复用性影响最大的缺口。如果工具挂起，及时检测并恢复。如果某项工作受阻，记录原因并继续其他
+可执行任务。同一方案连续失败，应重新调查根因，不无意义重试。测试结果必须保留历史证据，不得直接
+覆盖重要记录。不要通过空转、重复小修和无效提交制造工作时长。执行环境中断时，保存精确状态与
+恢复入口，不假装仍在后台运行。
+
+本次只交付研究和 Base，不制作游戏。在稳定检查点创建本地 Git commit。未经明确授权，不 push、
+不公开部署、不付费、不上传研究原件或原作资源、不删除无关文件。
+
+最终报告：Base 位置与版本、证据支持的交付等级、能力等价矩阵报告路径、主要差异与静态证据项、
+复用与隔离情况、两套测试配置、权利状态、未完成项和下一步。现在开始实际工作，不要只回复计划。
+```
+
+**交付等级**：Logic Ready（L1–L6 玩法、控制、AI、武器、关卡、存档 UI 全部验证）→ Presentation Ready（P1–P8 图集、逐帧/拆件/骨骼动画、状态与事件、分层渲染、特效阴影、资源管线、音画同步、性能全部有运行时或测量证据）→ Creator Ready（两套差异明显的原创测试配置，在同一个未修改的引擎核心上替换角色、动画、单位、地图和视觉风格）。来源审查与商业发行许可单独记录，技术测试不能使其通过。
+
+**其他入口**：[接管已有工程或 v4 Base](skills/game-reverse-engineering/prompts/TAKEOVER.md) · [跨会话/设备/Agent 接续](skills/game-reverse-engineering/prompts/RESUME.md) · [能力等价矩阵规则](skills/game-reverse-engineering/references/CAPABILITY_PARITY.md) · [三个实际项目的经验](skills/game-reverse-engineering/references/LESSONS.md)
+
+---
+
+# game-production v4
 
 适用于独立开发者和团队。不绑定 Cursor、Codex 或任何模型、引擎、平台、设备：同一个 Agent 可以完成全程，也可以让多个 Agent 跨会话、跨设备接力。
 
 > **核心原则：结果优先，证据验收，无人值守推进，范围不擅自扩大。** 完成一个阶段不等于完成任务；Base 通过不等于游戏合格；游戏合格不等于获准公开发布。本 Skill 不能保证 Agent 永久在线，也不能自动证明作品可以商用。
+>
+> 只需要深度研究并建设 Base 时，优先使用上面的 game-reverse-engineering；下面的「研究原游戏」提示词仍然有效，适合把研究与后续制游戏放在同一个工作流中。
 
 ## 🗺️ 工作流
 
@@ -248,7 +322,7 @@ python scripts/project.py init --project "<工作区路径>" --target full_pipel
 python scripts/project.py status --project "<工作区路径>"
 ```
 
-`init` 只安装 `SHA256SUMS.txt` 中列出的发布文件，不覆盖任何已有文件。v3 项目请运行 `migrate`（[迁移说明](references/MIGRATION_V3.md)）：原有的任务和证据会原样保留。不能自动发现 Skill 的 Agent，明确要求它读取 `.agents/skills/game-production/SKILL.md` 即可。**只发送 GitHub 链接并不保证所有 Agent 都会自动下载或启用 Skill**，Agent 需要联网、有仓库访问权限和文件/命令执行能力。
+`init` 只安装根目录 `SHA256SUMS.txt` 中列出的 game-production 发布文件（不包含 `skills/` 下的其他 Skill，它们各自有清单和安装命令），不覆盖任何已有文件。v3 项目请运行 `migrate`（[迁移说明](references/MIGRATION_V3.md)）：原有的任务和证据会原样保留。不能自动发现 Skill 的 Agent，明确要求它读取 `.agents/skills/game-production/SKILL.md` 即可。**只发送 GitHub 链接并不保证所有 Agent 都会自动下载或启用 Skill**，Agent 需要联网、有仓库访问权限和文件/命令执行能力。
 
 ## ✅ 质量与版权边界
 
@@ -275,11 +349,12 @@ python scripts/project.py status --project "<工作区路径>"
 
 ## 🛠️ 仓库说明
 
-- [`SKILL.md`](SKILL.md)：核心规则。
+- [`skills/game-reverse-engineering/`](skills/game-reverse-engineering/)：独立的逆向与 Base 建设 Skill（自带规则、提示词、模板、`gre.py` 工具、测试和 SHA256SUMS）。
+- [`SKILL.md`](SKILL.md)：game-production 核心规则。
 - [`references/`](references/)：[阶段](references/STAGES.md)、[Base 与多游戏](references/BASE_AND_GAMES.md)、[游戏策划规范](references/GAME_DESIGN_GUIDE.md)、[美术策划规范](references/ART_DIRECTION_GUIDE.md)、[质量](references/QUALITY.md)、[状态契约](references/STATE_CONTRACT.md)、[无人值守](references/AUTONOMY.md)、[跨设备](references/CROSS_DEVICE.md)、[来源与复用](references/REUSE_AND_RIGHTS.md)、[资产管线](references/ASSET_PIPELINE.md)、[v3 迁移](references/MIGRATION_V3.md)。
 - [`prompts/`](prompts/)：全部可以复制的启动提示词。
 - [`templates/`](templates/)：工作区、Base、游戏三层记录模板与策划/美术文档模板。
 - [`scripts/project.py`](scripts/project.py)：初始化、迁移、Base/游戏登记、状态、校验、交接检查。
-- [`QA_REPORT.md`](QA_REPORT.md)：**Skill 工具自身**的测试结果，不代表任何一款游戏已经通过验收。
+- [`QA_REPORT.md`](QA_REPORT.md)：**两个 Skill 工具自身**的测试结果，不代表任何一款游戏或 Base 已经通过验收。
 
 > 如果计划在自己的项目中公开分发这套 Skill，请遵守仓库许可证及所引用资源的许可要求。本仓库提供的是游戏生产方法，不包含任何目标游戏的专有源码或素材。

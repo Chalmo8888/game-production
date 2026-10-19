@@ -2,6 +2,8 @@
 
 适用场景：你有一个原游戏链接、开源项目或已有源码，希望先研究成熟机制，建立以后可以反复用来做新游戏的 Base。本次**不**自动制作游戏；需要连同第一款游戏一起完成时，请使用 [START_FULL_PIPELINE](START_FULL_PIPELINE.md)。
 
+> 需要完整的 2D 逆向（包括动画、渲染、特效、资源管线和音频），并交付经过能力等价矩阵和两套原创测试配置验证的 Creator Ready Base 时，推荐使用独立 Skill [game-reverse-engineering](../skills/game-reverse-engineering/prompts/START.md)。本页提示词仍然有效。
+
 替换【】中的内容后整段发送：
 
 ```text

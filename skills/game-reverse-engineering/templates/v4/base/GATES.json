@@ -1,0 +1,14 @@
+{
+  "schema_version": "3.0",
+  "tier": "base",
+  "gates": [
+    {"id": "B01", "name": "研究与机制证据", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "机制矩阵区分 VERIFIED/STATIC_ONLY/INFERRED/PROXY/UNKNOWN；自有引擎无需研究时 NOT_APPLICABLE 并写依据。"},
+    {"id": "B02", "name": "代码来源与权利", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "逐模块 KEEP/ADAPT/REPLACE/QUARANTINE/REVIEW；无权利的反编译实现不得进入 Base。"},
+    {"id": "B03", "name": "核心机制实现", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "核心循环、状态机和规则有行为测试与差距记录。"},
+    {"id": "B04", "name": "数据配置与内容扩展接口", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "单位/关卡/数值可由游戏目录配置扩展，不改 Core 源码。"},
+    {"id": "B05", "name": "资源与动画接口", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "资产 ID、格式、锚点、动作和导入校验有代表资产的全链路证据。"},
+    {"id": "B06", "name": "构建与自动测试", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "可从干净检出构建并运行测试，命令写入 BASE.json known_commands。"},
+    {"id": "B07", "name": "示例内容可运行", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "示例内容经正常输入运行，证明扩展点真实可用。"},
+    {"id": "B08", "name": "兼容性、版本与依赖游戏回归", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review"}, "subject_revision": "", "base_version": "", "evidence": [], "blocker": "", "next_action": "版本记录与变更说明；新版本须对依赖它的游戏做回归。首个版本无依赖游戏时可 NOT_APPLICABLE。"}
+  ]
+}

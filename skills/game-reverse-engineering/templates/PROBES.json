@@ -1,0 +1,8 @@
+{
+  "schema_version": "gre-1.0",
+  "required_probes": 2,
+  "categories": ["character", "animation", "unit", "map", "visual_style"],
+  "note": "Creator Ready 验证：两套差异明显的原创测试配置，在同一个未修改的引擎核心上替换角色、动画、单位、地图与视觉风格。",
+  "probes": [],
+  "probes_history": []
+}
