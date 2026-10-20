@@ -4,8 +4,8 @@
 
 | Skill | 状态 | 负责什么 |
 |---|---|---|
-| [game-reverse-engineering](skills/game-reverse-engineering/README.md) | 2.0.0 | 用户只需提供网页游戏链接，Agent 尽可能自动研究并还原该游戏成熟的玩法与制作能力，交付能够快速替换美术、修改玩法、批量生产原创游戏的 **Creator Base** |
-| [game-creation-polish](skills/game-creation-polish/README.md) | 0.1.0-preview（**未完成**） | 在已交付的 Creator Base 上制作和打磨具体游戏：策划、美术与资源、开发、QA 返工、发行候选 |
+| [game-reverse-engineering](skills/game-reverse-engineering/README.md) | 2.0.0（**正式版**） | 用户只需提供网页游戏链接，Agent 尽可能自动研究并还原该游戏成熟的玩法与制作能力，交付能够快速替换美术、修改玩法、批量生产原创游戏的 **Creator Base** |
+| [game-creation-polish](skills/game-creation-polish/README.md) | 0.1.0-preview（**预览版，未完成**） | 在已交付的 Creator Base 上制作和打磨具体游戏：策划、美术与资源、开发、QA 返工、发行候选 |
 
 两者之间唯一的接口是 Base 导出的 `CREATOR_HANDOFF.json`（[交接契约](skills/game-creation-polish/references/HANDOFF_CONTRACT.md)）。以前的单体 Skill（根目录的 SKILL.md、prompts、references、templates、scripts 和对应测试）已经退役并删除，不再提供入口；其中仍有价值的通用机制已迁入这两个 Skill（见 [CHANGELOG](CHANGELOG.md)）。
 
