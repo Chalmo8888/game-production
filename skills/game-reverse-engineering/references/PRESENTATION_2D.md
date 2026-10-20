@@ -1,6 +1,6 @@
 # 2D 表现能力重建规范（E5，PRESENTATION_READY）
 
-表现能力和逻辑能力同等重要。只迁移玩法逻辑、表现只做到“资源能被引擎接受”，正是《植物大战僵尸》项目中出现的缺口。
+表现能力和逻辑能力同等重要。只迁移玩法逻辑、表现只做到“资源能被引擎接受”，或者用自己的画法代替原版的画法却写成“已还原”，都是过去项目中真实出现过的失败（见 [项目经验](LESSONS.md)）。
 
 ## 1. 最少能力清单（对应 P1–P8）
 | 域 | 能力 | 验证方式（必须有运行时或测量证据） |
@@ -33,12 +33,22 @@ UI 组件（九宫格、位图字体、HUD 安全区）属于 L6/P4/P6 的交叉
 ## 4. 降级与差异
 - 离线烘焙（把分层动画烘焙成逐帧）、调试图形、整体形变代替部件动画等方案都是降级，必须写进 differences，不能当作等价实现。
 - 渲染方案可以与原版不同（例如 WebGL 合批代替软件渲染），只要能力等价或更好，并在 differences 中写明。
-- 用映射层隔离渲染方案：旧接口（帧名）映射到新实现（姿势或部件），逻辑状态机不改（《勇者之路》提交 `26b7c1e` 的做法）。
+- 用映射层隔离渲染方案：旧接口（帧名）映射到新实现（姿势或部件），逻辑状态机不改（过去项目验证过的做法，见 [项目经验](LESSONS.md)）。
 
-## 5. Presentation Reconstruction：原作的画面是怎样组合出来的
-逆向不能只看玩法规则，也不能只统计图片、动画和音效资源。要恢复的是原作把资源、坐标、动画、渲染、UI 和玩法状态组合成最终画面的机制。记录放在 `re/PRESENTATION.json`，用 `gre.py present study|check|compare` 维护。
+## 5. Presentation Reconstruction：原版管线优先（Original Pipeline First）
+逆向不能只看玩法规则，也不能只统计图片、动画和音效资源。要恢复的是**原作把资源、坐标、动画、渲染、UI 和玩法状态组合成最终画面的实际方法**，然后判断 Base 是不是用了同一种方法。记录放在 `re/PRESENTATION.json`，用 `gre.py present reference|study|frame|check|compare` 维护；工具推导门禁，不能手动设为通过。
 
-### 5.1 强制调查项（study，PR01–PR10）
+> 先研究原版怎么做，再决定 Base 怎么做。没有证据证明原版这样做，就不能写“与原版相同”；Base 用了不同的方法，就必须写出差异、原因和影响。
+
+### 5.1 门禁 0：参考资料盘点（`present reference`）
+开始研究画面之前先记录：
+- **原版能否运行**：`--runtime AVAILABLE | UNAVAILABLE`（未确认时保持 UNKNOWN，门禁不通过）。
+- **研究环境里有没有合法的原版像素**：`--assets LEGAL_ORIGINAL | PLACEHOLDER_ONLY | NONE`。
+- **需要做帧研究的场景类型**：`--scene-types battle,map,menu ...`（按目标游戏实际有的场景列出）。
+
+没有合法原版像素时，最强结论只能是“结构经源码/运行时确认”，视觉保真度永远是 NOT VERIFIED（见 5.6）。
+
+### 5.2 调查项（study，PR01–PR13）
 | ID | 调查内容 | 默认关联的矩阵条目 |
 |---|---|---|
 | PR01 | 逻辑坐标到画面坐标的转换（世界单位、相机、视口、像素对齐） | P4-03、P1-02 |
@@ -51,65 +61,86 @@ UI 组件（九宫格、位图字体、HUD 安全区）属于 L6/P4/P6 的交叉
 | PR08 | 粒子、透明混合、受击和环境特效 | P5-01、P5-02、P4-03 |
 | PR09 | HUD、菜单、交互区域和分辨率布局 | L6-02 |
 | PR10 | 资源加载、缓存、批处理和打包 | P6-01、P8-02 |
+| PR11 | 场景背景的绘制方式（预绘制大图、拼贴、程序生成、分层视差；源窗口、缩放与宽屏填充） | P4-01、P4-03 |
+| PR12 | 棋盘、地形或地图的几何结构（格宽、格高、行高、偏移、斜面、高地）与背景的对齐方式 | L5-01、P4-01 |
+| PR13 | 资源加载、构建与制作工具，以及场景和角色资源的生产约束 | P6-01、P6-03 |
 
-每项都要记录以下内容（工具会检查是否填写）：
-- **来源证据**：refs，可以标为本地研究资料。
-- **证据等级**：`evidence_level`。
-- **输入和输出**：`inputs` / `outputs`。
-- **数据结构**：`data_structures`。
-- **约束**：`constraints`。
-- **尚未知晓的内容**：`unknowns`。确实没有未知项时，写“none known”。
-- **可复用的实现方式**：`reuse`，例如 KEEP 某个许可明确的渲染模块，或在 Base 渲染器上 REIMPLEMENT。
+每项都要记录：来源证据 refs（可标为本地研究资料）、`evidence_level`、`inputs` / `outputs`、`data_structures`、`constraints`、`unknowns`（确实没有时写 none known）、`reuse`，以及：
+- **`original_method`**：原版实际怎么做（D 可以不写）。
+- **`base_method`**：Base 怎么做。
+- **`decision`**：A / B / C / D（5.3）。
+- **`base_relation`**：same_method / different_method / downgrade / missing。
+- C 必须写 `deviation`：difference（差异）、reason（原因）、impact（对画面或玩法的影响）。
 
-证据规则：
-- VERIFIED 需要动态证据：trace、measurement、recording 或 comparison。
-- STATIC_ONLY 需要静态证据：source、data、disassembly 或 asset-structure。
-- **只有截图时最多是 INFERRED**，并且要写 dynamic_gap。不能根据几张截图推测出整个引擎架构，再把推测当成事实。
-- 原版确实没有某项能力（例如没有粒子）时，可以写 `na_basis`，但仍要附上能证明这一点的证据。
+证据规则（工具强制）：
+- VERIFIED 需要动态证据（trace、measurement、recording、comparison）；STATIC_ONLY 需要静态证据（source、data、disassembly、asset-structure）。**只有截图时最多 INFERRED**，并写 dynamic_gap。
+- **PR13 的制作工具和流程默认未知**：只有原作者公开的文档（kind = author-documentation）才能确认；不能从数据格式反推“原版用某某工具”。
+- **Base 或自有测试美术产生的文件只能证明 Base 自洽**，不能作为原版证据。工具会比对哈希：调查项或矩阵条目引用了实验、验证或探针产生的文件，`validate` 报错。
+- 原版确实没有某项能力时，写 `na_basis` 并附证据。
 
-### 5.2 重建实验（experiment，PX01–PX08）
-在 Base 中用**原创或许可清楚的测试资产**搭建一个代表性场景，实际运行并保存截图、动画序列和测量结果：
+### 5.3 A / B / C / D 判定
+| 判定 | 含义 | 工具检查 |
+|---|---|---|
+| A | 原版方法已确认，且原实现可合法直接复用 | 证据等级 VERIFIED/STATIC_ONLY；relation = same_method；`--modules` 指向 REUSE.json 中 KEEP/ADAPT 模块 |
+| B | 原版方法已确认，Base 合规地按同一方法重建 | 证据等级 VERIFIED/STATIC_ONLY；relation = same_method |
+| C | 有意改变或扩展原版方法 | 原版方法不能是 UNKNOWN；必须写差异、原因、影响 |
+| D | 原版方法没有证据（未知或只有推测） | 证据等级不能是 VERIFIED/STATIC_ONLY |
+
+**B/C/D 不得写成 A，C/D 不得写成“与原版相同”。** 调查项为 C/D 或 relation 不是 same_method 时，关联的矩阵条目不能声称 PARITY（工具报 parity conflict），应改为 REPLACEMENT 或 EXTENSION 并说明差异。
+
+### 5.4 帧研究（`present frame`）
+每个场景类型至少研究一帧，弄清楚这一帧到底是怎样画出来的：
+- **原版能运行（runtime 模式）**：保存逐个绘制图元的 trace（JSON，`primitives[]` 每项含 image、src_rect、corners（4 个角）、blend、render_item、sort_key）；保存公式校验（`checks[]` 每项含 expected、actual、tolerance，工具计算 N/N，必须全部通过）；保存至少两张逐层重建图。
+- **原版不能运行（source 模式）**：只有参考盘点为 UNAVAILABLE 时才允许，用源码走读说明同一帧的绘制路径。
+- trace、公式和图层文件以哈希绑定，事后修改即失效。
+
+### 5.5 重建实验（experiment，PX01–PX09）
+在 Base 中用**原创或许可清楚的测试资产**搭建代表性场景，实际运行并保存截图、动画序列和测量结果：
 | ID | 必须证明 | 至少要有的证据 | 额外条件 |
 |---|---|---|---|
-| PX01 | 用配置构建分层场景 | runtime-capture 或 recording | `--bind` 至少两份不同的场景配置；只能复现一套固定画面不算 |
+| PX01 | 用配置构建分层场景 | runtime-capture 或 recording | `--bind` 至少两份不同的场景配置 |
 | PX02 | 不同尺寸对象的正确定位（坐标、Pivot、Anchor） | measurement | 绑定坐标与锚点数据 |
 | PX03 | 遮挡与渲染顺序 | measurement 或 runtime-capture | |
 | PX04 | 逐帧或分部件动画播放 | recording | |
-| PX05 | 动画关键时刻触发攻击、发射和特效 | trace 或 measurement（事件帧与逻辑 tick 对照） | 截图证明不了时序 |
+| PX05 | 动画关键时刻触发攻击、发射和特效 | trace 或 measurement | 截图证明不了时序 |
 | PX06 | 逻辑碰撞位置与视觉位置一致 | measurement | 绑定锚点和碰撞数据 |
-| PX07 | 更换场景资源和 UI 主题后，脚点、碰撞和交互位置仍然正确 | measurement | 记录换前、换后的素材与 UI（必须不同）；换主题不能改核心（核心指纹与 PX02 基线一致） |
+| PX07 | 更换场景资源和 UI 主题后，脚点、碰撞和交互位置仍然正确 | measurement | 记录换前、换后的素材与 UI（必须不同）；换主题不能改核心 |
 | PX08 | 目标分辨率下布局与操作正确 | 每个分辨率一份 measurement | 列出测量过的分辨率 |
+| PX09 | 场景与逻辑几何契约（背景窗口、棋盘/地图几何、偏移、宽屏规则）实测一致 | measurement | 绑定几何契约文件 |
 
-每项检查都记录 Base 版本、核心指纹和绑定文件（场景、坐标、锚点、布局配置）的哈希：
-- **自动过期**：核心代码或绑定文件变化后，检查自动变为“过期”，需要重新测量。旧结果保存在 history 中。
-- **素材来源**：实验素材不能来自隔离的研究材料，也不能使用未经授权的原版图片、音频或特定受保护的布局。
+每项检查记录 Base 版本、核心指纹、绑定文件的哈希和当时各调查项的修订号：
+- **自动过期**：核心代码或绑定文件变化，或者相关调查项（PX→PR 对应关系见工具 `PX_TOPICS`）被更正后，检查变为过期，需要重新测量；旧结果保存在 history。
+- **素材来源**：实验素材不能来自隔离的研究材料，也不能使用未经授权的原版图片、音频或受保护的布局。
 
-### 5.3 与原版的动态对照
-- 原版可以合法运行时，用 `gre.py present compare --status DONE --evidence <对照录像/测量>` 记录同场景、同输入下的画面与行为对照。
-- 无法运行时，记为 `UNAVAILABLE` 并写明原因。门禁仍然可以因为“能力已重建”而通过，但状态和报告会写明“NOT dynamically verified”，不能宣称与原版表现等价。
+### 5.6 结论更正与两类保真度
+- **更正**：发现之前的调查结论错了，用 `present study --id PR03 --correct "<正确结论>" --affects <受影响的实现、配置、检查>`。工具记录旧结论、新结论和受影响范围，调查项修订号加一；关联的 PX 检查和矩阵条目随即过期，必须重新验证下游实现，不能只改文档。
+- **机制保真度**（mechanism）：画面是否按原版方法组合。全部调查项都有判定后，报告“runtime-traced”或“source-confirmed only”，并列出 C（changed）和 D（unknown）项。
+- **视觉保真度**（visual）：只有参考盘点为 LEGAL_ORIGINAL，且 `present compare --status DONE --asset-source original` 记录了与原版真实素材的并排对照时，才是“compared side by side”。占位图（placeholder）或自有测试美术（own_test）的对照只证明自洽，视觉保真度保持 NOT VERIFIED。
+- 状态、报告和创作交接（`gre.py export`）分别给出两类保真度，不能合并成一句“已还原”。
 
-### 5.4 Presentation Reconstruction Gate
-门禁由工具根据以上记录推导，不能手动设为通过。通过条件：
-- PR01–PR10 全部完成调查；
-- PX01–PX08 全部 PASS 且没有过期；
-- 实验中同时保存了截图、动画序列和测量结果；
-- 已记录与原版的动态对照（DONE，或写明原因的 UNAVAILABLE）。
+### 5.7 Presentation Reconstruction Gate
+通过条件（工具推导）：
+- 参考资料盘点完成，每个场景类型都有有效的帧研究；
+- PR01–PR13 全部完成调查，并有判定和方法说明；
+- PX01–PX09 全部 PASS 且没有过期；实验同时保存了截图、动画序列和测量结果；
+- 已记录与原版的动态对照（DONE 并写明素材来源，或写明原因的 UNAVAILABLE）；
+- 没有 parity conflict，也没有把 Base 输出当作原版证据。
 
-它是 **PRESENTATION_READY 的必要条件**，也自然成为 CREATOR_READY 的前提。此外，Creator 测试配置还必须用同一套场景配置机制组装各自的场景（`gre.py probe --scene`），两套配置的场景文件不能相同。
+它是 PRESENTATION_READY 的必要条件，也是 CREATOR_CANDIDATE 的前提。以下情况都不能通过：只提取了资源文件名或只实现了图片加载；只能显示静态图；动画、特效与玩法状态没有可靠关联；场景布局需要硬编码才能替换美术；换素材后脚点、碰撞或交互位置失效；只能复现一套固定画面。
 
-以下情况都不能通过门禁：
-- 只提取了资源文件名，或者只实现了图片加载接口；
-- 只能显示几张静态图片，或者只有概念图、没有实际场景；
-- 动画、特效与玩法状态没有可靠关联（PX05 缺少时序证据）；
-- 场景布局需要大量硬编码才能替换美术（PX01 只有一套场景，或者 PX07 需要修改核心）；
-- 更换素材后脚点、碰撞或交互位置失效（PX07 换后的测量）；
-- 只能复现一套固定画面，不能重新配置场景结构。
+### 5.8 创作者资产契约
+研究结论最终要变成创作者能直接遵守的契约，放进创作者工具包（[Base 验收](BASE_ACCEPTANCE.md) 第 3 节）：
+- **场景几何契约**：背景源窗口、可见窗口与相机、宽屏填充、棋盘/地图几何与偏移（PR11、PR12、PX09）。
+- **角色规范**：尺寸与世界比例、pivot/脚点、挂点和发射点（PR02、PR06）。
+- **图层规则**：背景、地形、前景、遮挡、特效和 UI 的组织与排序（PR03、PR08）。
+- **动画导入**：图集、逐帧/拆件/骨骼的导入方式和事件帧（PR04、PR05）。
+- **UI 主题**：布局、交互区与分辨率规则（PR09）。
+具体数值来自目标游戏的研究，Skill 不规定任何像素常量。
 
-### 5.5 复用与边界
-- 有明确合法复用许可的成熟表现系统（原作或第三方的渲染、动画、粒子、UI 库），可以直接保留或改造（REUSE.json 中的 KEEP/ADAPT）。
-- 不能合法复用的实现，只研究其通用行为与功能要求，再用权利清晰的技术独立实现等价能力。
-- 可以使用许可证适用的成熟 2D 渲染和动画技术；不要为了还原原版的内部架构，重复开发已有的通用功能。
-- 不能因为重新实现，就没有理由地降低原版的重要表现能力；确有降级时，写进对应条目的 differences。
+### 5.9 复用与边界
+- 有明确合法复用许可的成熟表现系统可以直接保留或改造（REUSE.json 中的 KEEP/ADAPT，对应判定 A）。
+- 不能合法复用的实现，只研究其通用行为与功能要求，再用权利清晰的技术按同一方法重建（B），或者明确改用其他方法（C）。
+- 可以使用许可证适用的成熟 2D 渲染和动画技术；不要为了还原原版的内部架构，重复开发已有的通用功能；但改了方法就要按 C 记录。
 
 ## 6. 达到 PRESENTATION_READY
 在 LOGIC_READY 的基础上：
@@ -117,4 +148,4 @@ UI 组件（九宫格、位图字体、HUD 安全区）属于 L6/P4/P6 的交叉
 - P2 至少有一种动画技术完成验证；
 - **Presentation Reconstruction Gate 通过**。
 
-PRESENTATION_READY 仍不代表 Creator Ready：还需要证明换内容时不用改核心，并且能做出不同的游戏。
+PRESENTATION_READY 仍不代表可以交给创作者：还需要通过 CREATOR_CANDIDATE 的解耦、工具包和首次使用门禁，以及 CREATOR_READY 的独立复用验收。

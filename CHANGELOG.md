@@ -1,5 +1,50 @@
 # Changelog
 
+## 两个 Skill 架构收敛（未发布，分支 refactor/two-skills）
+仓库只保留两个 Skill：`skills/game-reverse-engineering`（2.0.0）和 `skills/game-creation-polish`（0.1.0-preview，未完成）。
+
+### 退役并删除的单体 Skill（game-production 4.1.0）
+- 删除根目录 `SKILL.md`、`SHA256SUMS.txt`、`prompts/`（13 个提示词）、`references/`（15 份）、`templates/`（含 v3 遗留模板）、`scripts/project.py`、`tests/test_project.py`，以及逆向 Skill 中的 `references/V4_INTEGRATION.md` 和 `templates/v4/`。不保留“deprecated”入口。
+- 删除 v1/v2/v3 迁移文档与 v3 迁移命令。v3 单游戏记录不再受支持，工具提示使用退役前的最后一个单体版本（提交 9fc83fe）转换。
+- 删除 Base 门禁 B01–B08 与 Base 就绪度 RESEARCH_READY / BASE_READY / COMMERCIAL_BASE_CANDIDATE；Base 的验收统一由逆向 Skill 的等级与创作交接表达。
+
+### 迁移的通用机制
+| 机制 | 去向 |
+|---|---|
+| 工作区格式（WORKSPACE / BASE schema 3.0） | 两个 Skill 共用；共享模板由仓库检查保证一致 |
+| 跨设备接力、`env` 探测、本机信息只写 `.production/local/` | 两个 Skill 都保留；GCP 文档 OPERATIONS |
+| 无人值守执行、授权范围与配额、停止状态（TARGET_REACHED 由证据核对） | GRE `stop`；GCP `scope` / `run` |
+| 状态记录与恢复、检查点、交接检查 | GRE `checkpoint` / `resume` / `handoff`；GCP `status` / `handoff --check` |
+| 分阶段任务 | GRE E0–E7；GCP G0–G7 |
+| 证据归档（哈希、时间戳、只追加） | 两个 Skill 都保留 |
+| Git 基线与改动保护 | GRE：核心/starter 未提交改动阻止创作者等级，首次使用只测已提交的 HEAD；GCP：交接文件哈希与核心指纹 |
+| QA 运行与失败恢复、阻断检测与预算控制 | GRE 任务超时、研究预算、打磨阻断；GCP 游戏门禁 D/Q/R 与返工 |
+| 游戏策划、美术策划、资产管线、品类检查、平台来源 | 迁入 GCP references |
+| 游戏门禁 D01–D02、Q01–Q08、R01–R04 与游戏就绪度 | GCP `gcp.py`（由 `project.py` 的游戏部分移植） |
+
+### game-reverse-engineering 2.0.0
+- **核心定义**写入 SKILL.md 首节：用户只需提供网页游戏链接，Agent 尽可能自动研究并还原成熟的玩法与制作能力，交付 Creator Base；这是目标而不是保证。
+- **原版管线优先**：参考资料盘点（门禁 0：原版能否运行、有无合法原版像素、场景类型）；调查项扩展到 PR01–PR13（新增背景绘制方式、棋盘/地图几何、加载构建与制作工具），每项记录原版方法、Base 方法、A/B/C/D 判定和与原版的关系；C 必须写差异、原因、影响；A 必须有可合法复用的 KEEP/ADAPT 模块；推测或未知只能是 D；制作工具只有作者文档才能确认。
+- **帧研究**：每个场景类型要么做运行时逐图元 trace（6 个字段 + 4 个角）、公式校验 N/N 和逐层重建，要么在原版无法运行时做源码走读。
+- **结论更正**：`present study --correct --affects` 记录旧结论、新结论和受影响范围；关联的 PX 检查和矩阵条目自动过期。
+- **PX09** 场景与逻辑几何契约实测。
+- **两类保真度**：机制保真度与视觉保真度分开报告；没有合法原版像素或只用占位图/自有美术对照时，视觉保真度为 NOT VERIFIED。Base 输出被引用为原版证据、矩阵 PARITY 与调查判定冲突都会被 `validate` 报错。
+- **等级**新增 CREATOR_CANDIDATE：解耦门禁（从 starter 提取名称和路径扫描核心）、创作者工具包（12 项，4 项必需且必须被首次使用实际运行）、干净首次使用门禁（克隆 HEAD、缓存隔离、8 类步骤含缺失资源必须失败的反例、日志存档、绑定提交/指纹/步骤哈希）、核心与 starter 无未提交改动。
+- **CREATOR_READY** 另需独立复用验收：未参与开发的 Agent、核心零改动、8 项检查、切片录像，并记录资产数、步骤、人工介入、首次成功耗时和未验证项；无法组织时停在 CREATOR_CANDIDATE。
+- 新命令：`present reference|frame`、`kit`、`first-use check|run`、`reuse-trial start|finish`、`paths`、`stop`、`base bump|freeze`、`export`。
+- 修复：PR13 的作者文档证据此前无法满足 STATIC_ONLY；首次使用日志目录在同一秒内重复运行会冲突。
+- 共享记录中的本机绝对路径由 `validate` 报错。权利记录去掉 B02，保留 RE01 / RE03 / RE02。
+
+### game-creation-polish 0.1.0-preview（未完成）
+- 新的独立入口：SKILL.md（标注 PREVIEW 与未实现事项）、README、START / CONTINUE 提示词、9 份参考文档、游戏模板。
+- `gcp.py`：游戏创建与改绑、阶段、D/Q/R 门禁与就绪度推导、资产状态、授权范围、运行状态、环境探测、状态与交接检查。
+- Base 就绪度只来自最新的 `CREATOR_HANDOFF.json`：校验 schema、Base ID/版本、工具包文件哈希和重新计算的核心指纹；GAME_READY 需要 ≥ CREATOR_CANDIDATE，PUBLICATION_APPROVED 另需交接中 RE01 PASS、RE03 PASS/N/A。
+- 未实现：美术生产自动化、浏览器实机 QA、打包；交接来源签名；向上游自动转交 Base 改进需求。
+
+### 仓库
+- 新增 `tools/repo_check.py`（入口数量、退役文件、清单、链接、本机路径与密钥、共享模板、旧入口引用）和 `tests/test_repo.py`（检查器反例、真实 GRE 导出被 GCP 读取的契约测试）。
+- 每个 Skill 有自己的 SHA256SUMS；根目录不再有清单。
+
 ## game-reverse-engineering 1.2.0（2026-10-19，Presentation Reconstruction）
 这次是在现有表现规范（PRESENTATION_2D、P1–P8）基础上的深化，没有新建平行流程；数据格式仍是 `gre-1.0`，只做加法。
 - **新增 `re/PRESENTATION.json` 与 `gre.py present study|check|compare`。**

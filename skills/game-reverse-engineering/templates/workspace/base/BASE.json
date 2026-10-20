@@ -1,0 +1,30 @@
+{
+  "schema_version": "3.0",
+  "kit_version": "workspace-3",
+  "base_id": "TO_BE_SET",
+  "name": "",
+  "code_path": "",
+  "current_version": "TO_BE_SET",
+  "versions": [],
+  "research_ids": [],
+  "sources": [],
+  "capabilities": [],
+  "extension_points": [],
+  "asset_interface": {
+    "contract_version": "",
+    "formats": [],
+    "doc": "CAPABILITIES.md"
+  },
+  "known_commands": {
+    "install": "",
+    "build": "",
+    "test": "",
+    "sample_run": "",
+    "asset_import": ""
+  },
+  "known_limits": [],
+  "dependent_games": [],
+  "notes": [
+    "Base identity and versions. Delivery levels live in re/RE_STATE.json (NONE < LOGIC_READY < PRESENTATION_READY < CREATOR_CANDIDATE < CREATOR_READY); game-creation-polish reads the exported creator handoff, not this file's readiness field."
+  ]
+}

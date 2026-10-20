@@ -1,0 +1,58 @@
+{
+  "schema_version": "gre-1.0",
+  "note": "Clean first-use gate：gre.py first-use run 把已提交的 Base 克隆到全新目录（不带缓存、构建产物和本地状态），严格按 start_here 文档逐步执行。每一步的命令必须原样出现在 start_here 中；negative_missing_resource 删除必需资源后必须失败。argv 中的 {python} 表示当前 Python；需要平台差异时用 argv_windows / argv_posix。",
+  "start_here": "",
+  "steps": [
+    {
+      "id": "create-pack",
+      "kind": "create_content_pack",
+      "argv": [],
+      "timeout_min": 10
+    },
+    {
+      "id": "import-assets",
+      "kind": "import_assets",
+      "argv": [],
+      "timeout_min": 10
+    },
+    {
+      "id": "validate",
+      "kind": "validate_assets",
+      "argv": [],
+      "timeout_min": 10
+    },
+    {
+      "id": "build",
+      "kind": "build",
+      "argv": [],
+      "timeout_min": 20
+    },
+    {
+      "id": "launch",
+      "kind": "launch_runtime",
+      "argv": [],
+      "timeout_min": 10
+    },
+    {
+      "id": "playtest",
+      "kind": "playtest",
+      "argv": [],
+      "timeout_min": 20
+    },
+    {
+      "id": "missing-resource-blocks",
+      "kind": "negative_missing_resource",
+      "remove": [],
+      "argv": [],
+      "expect": "failure",
+      "timeout_min": 10
+    },
+    {
+      "id": "regression",
+      "kind": "regression",
+      "argv": [],
+      "timeout_min": 20
+    }
+  ],
+  "runs": []
+}

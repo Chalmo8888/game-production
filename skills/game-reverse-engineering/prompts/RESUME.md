@@ -15,7 +15,8 @@
    用 gre.py task recover --id <任务> --recover-action restart|abandon --summary "..." 安全关闭或重启，
    只结束该任务记录的进程。提示缺少新版本字段时运行 gre.py upgrade（只增加字段）。
 5. 先跑 Base 的构建和测试；status 中列为“过期”的条目说明代码改过，要重新验证。然后从检查点的
-   下一步或 gre.py next 排名第一的缺口继续。
+   下一步或 gre.py next 排名第一的缺口继续。提交过新改动后，干净首次使用需要重跑（gre.py first-use run）；
+   Base 交付状态变化后重新 gre.py export。
 
 【无人值守执行规则】
 开始调查并执行，直到达到当前授权范围内可验证的交付目标，或遇到无法自行解决的真实外部阻断。

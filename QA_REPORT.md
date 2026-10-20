@@ -1,98 +1,45 @@
-# 自身测试报告 — game-production 4.1.0 与 game-reverse-engineering 1.2.0
+# 质量测试报告 — 两个 Skill 架构收敛（game-reverse-engineering 2.0.0 · game-creation-polish 0.1.0-preview）
 
-## game-reverse-engineering 1.2.0：Presentation Reconstruction
-`python -m unittest discover -s skills/game-reverse-engineering/tests -v`：**39/39 通过**，没有跳过的测试。新增的 `PresentationTest` 共 8 项：
+测试环境：Windows，Python 3.12，Git；全部测试只用标准库，在临时目录中构造工作区与 Git 仓库，不访问网络，不读取真实游戏工程。macOS / Linux 没有实际运行（见“未验证”）。以前版本的测试报告保存在 Git 历史中。
 
-| 场景 | 测试 | 验证内容 |
-|---|---|---|
-| 只支持资源导入、没有场景装配能力 | `test_asset_import_only_cannot_pass_presentation` | P1–P8 条目都已验证，但没有场景实验时拒绝 PRESENTATION_READY（等级停在 LOGIC_READY）；状态显示门禁 FAIL；`next` 的第一项是表现重建；只有证据、没填调查字段不算完成；未记录原版对照时被指出 |
-| 静态场景，缺少动画和事件绑定 | `test_static_scene_without_animation_and_event_binding_is_not_full_presentation` | PX04、PX05 缺失时门禁不通过；PX05 只有截图时被拒（截图证明不了时序）；补齐后通过 |
-| 只能复现一套固定画面 | `test_single_fixed_screen_is_not_a_configurable_scene_system` | PX01 只有一份场景配置时被拒 |
-| 场景坐标或锚点变化后必须更新证据 | `test_scene_coordinate_or_anchor_change_requires_new_evidence` | 锚点文件改动后 PX02、PX06 过期，原有声明报错；重新测量后通过，旧测量保留在 history 中 |
-| 新素材和 UI 主题不大改核心即可运行 | `test_new_assets_and_ui_theme_run_without_core_changes` | 换前与换后素材相同、UI 相同时分别被拒；为某个主题修改核心后，被判定为“换美术需要改核心” |
-| 截图不能当作引擎架构事实 | `test_screenshots_alone_cannot_establish_engine_architecture` | 只有截图时不能标 VERIFIED 或 STATIC_ONLY；可以标为 INFERRED，但必须说明缺口 |
-| 原版无法运行时如实标注 | `test_missing_dynamic_evidence_is_reported_not_hidden` | 门禁可以通过，但状态和报告都写明“NOT dynamically verified” |
-| 不破坏旧项目和既有门禁 | `test_claims_made_before_the_gate_stay_readable` | 1.1.0 规则下的 PRESENTATION_READY 声明、缺少 PRESENTATION.json 时只给出提示、不报错；`upgrade` 只新增文件；v4 的 validate 仍然通过 |
+## 自动测试
+| 套件 | 数量 | 结果 | 覆盖 |
+|---|---|---|---|
+| `skills/game-reverse-engineering/tests` | 52 | 通过 | 原有 39 项中删除 2 项 v4 测试、新增 1 项已有工作区接管测试，其余按 2.0 规则更新；新增原版管线优先 8 项、创作者门禁 6 项 |
+| `skills/game-creation-polish/tests` | 38 | 通过 | 安装与安全 10 项、交接契约 9 项、游戏场景 19 项（由 v4 游戏测试移植） |
+| `tests`（仓库） | 4 | 通过 | 仓库检查、检查器反例、真实 GRE 导出被 GCP 读取的契约 |
+| `tools/repo_check.py` | — | REPO_CHECK_PASSED | 只有两个 Skill 入口、无退役文件、清单与链接有效、无本机路径/密钥、共享模板一致、无旧入口引用 |
 
-另外：Creator 测试配置必须带场景配置，两套场景相同时被判定无效；交接检查逐项核对“后续游戏创作交接”的 7 项答案。原有的 31 个测试全部继续通过，其中 Creator、权利、交接相关的测试已按新规则补充了场景实验和交接内容。
+### 失败模式反例（不是只测模板存在）
+每一条都用错误数据触发门禁：
+- B 判定配不同方法、C 不写差异原因影响、A 没有可复用模块、推测方法写成 B、已确认方法写成 D、制作工具从数据格式推断。
+- 矩阵 PARITY 与调查判定 C/downgrade 冲突；Base 实验输出被引用为原版证据。
+- 结论更正后 PX03 与 P4-01 过期；更正不写 `--affects` 被拒绝。
+- 占位图对照、合法原版素材但未并排对照时，视觉保真度保持 NOT VERIFIED。
+- 运行时帧：图元缺字段、公式 2/3、只有一张图层、帧文件事后修改；原版可运行却只交源码走读。
+- 参考盘点缺失、场景类型缺失、某场景类型没有帧研究。
+- 解耦：核心出现 starter 的 id、资源文件名、starter 路径；starter 放在核心内；带理由的例外生效。
+- 工具包：必需项 N/A、路径不存在、校验器没有被首次使用运行。
+- 干净首次使用：Quick Start 与步骤不一致、内容包生成器坏掉、校验器从不失败（缺失资源反例失败）、HEAD 变化后过期；成功运行在克隆中进行，工作区不产生输出。
+- 独立复用：开发者本人、同环境非独立、核心改动、BLOCKED 都不能达到 CREATOR_READY；NOT_RUN 停在 CREATOR_CANDIDATE。
+- 核心或 starter 有未提交改动时阻止创作者等级；TARGET_REACHED 未达标被拒绝；停止不写原因被拒绝；共享记录中的本机路径报错；冻结低于 CREATOR_CANDIDATE 的版本被拒绝；导出从不覆盖。
+- GCP：交接缺失、等级不足、最新导出等级降低、工具包文件被改、核心被改或新增文件、schema/版本不符、路径越界、Base 权利不足时 GAME_READY / PUBLICATION_APPROVED 被拒绝。
+- 仓库检查：第三个 SKILL.md、根目录 prompts、旧入口引用、失效链接、本机路径、密钥、清单过期、共享模板分叉。
 
-**变异检查**：用复制目录 + 对照组的方法，对 13 条新规则逐条改坏，对应测试都会失败。这 13 条是：
-- 门禁是 PRESENTATION_READY 的必要条件
-- PX01 需要两份场景配置
-- 布局和锚点文件变化后过期
-- 换主题不能改核心
-- 换主题必须换素材
-- 检查需要特定类型的证据
-- 截图不能作为 VERIFIED 的依据
-- 截图不能作为 STATIC_ONLY 的依据
-- 调查字段必须填写
-- 必须记录原版对照
-- 无法对照时必须如实报告
-- 创作交接必须作答
-- Creator 测试配置的场景不能相同
+### 变异检查（门禁真的被测试约束）
+方法：每次把整个仓库复制到临时目录、重新生成清单，先运行不做修改的对照副本（全部目标测试通过），再在副本中只禁用一个检查，运行对应测试，期望失败。
+- 21 个变异：GRE 15 个（parity 冲突、证据误用、B 配不同方法、更正过期、视觉保真、公式容差、推测写成 B、解耦、必需工具包项、缺失资源反例、首次使用绑定 HEAD、复用独立性、复用核心改动、Git 未提交改动、TARGET_REACHED 核对），GCP 4 个（核心指纹、工具包文件哈希、等级阈值、发布权利），仓库检查 2 个（退役文件、多余入口）。
+- 结果 21/21 被测试发现。第一次运行时“复用核心改动”变异存活：该测试的核心改动同时让其他门禁失败，没有隔离目标；已改为先恢复核心、再断言具体原因，复跑后被发现。
 
-首轮有 3 条未被抓到（换素材、调查字段、原版对照），已补充测试断言后全部抓到。
+## 审计与清理
+- v4 的根入口、提示词、参考文档、模板、`project.py`、v4 测试和逆向 Skill 中的 v4 模板与 V4_INTEGRATION 均已删除；`repo_check` 以 Git 索引为准确认无残留。
+- 暂存差异扫描：除测试中故意构造的用户目录路径和假令牌外，没有本机绝对路径、用户名或密钥；没有缓存、日志、研究原件或 `.production/local/`。
+- 工作区中两个对话开始前就存在的未跟踪文件 `templates/README.md`、`templates/SHA256SUMS.txt`（旧 README 与清单的副本）没有删除、也没有提交，需要所有者决定。
 
----
-
-# 自身测试报告 — game-production 4.1.0 与 game-reverse-engineering 1.1.0
-
-- 审查日期：2026-10-19
-- 分支：`feature/game-reverse-engineering`（尚未合并到 main）
-- 环境：Windows 10.0.26200，Python 3.12.10。代码只用 Python 3.9 可用的语法和标准库，但没有在 3.9、macOS 或 Linux 上实际运行过。
-- 独立性：self_review（同一个 Agent 编写并测试），没有独立审查者。
-
-## game-reverse-engineering 1.1.0
-`python -m unittest discover -s skills/game-reverse-engineering/tests -v`：**31/31 通过**，没有跳过的测试。
-
-### 1.1.0 新增的验收场景
-| 场景 | 测试 | 验证内容 |
-|---|---|---|
-| 发现模板之外的游戏独特能力 | `test_game_specific_capability_beyond_the_template` | 发现的条目必须附发现位置的证据；新条目会阻断 LOGIC_READY，原有声明被判定超出证据；验证后恢复；UNAVAILABLE 必须写原因 |
-| 范围与排除需要理由 | `test_scope_changes_and_exclusions_need_reasons` | 排除或降级模板条目必须写 scope_reason；排除项不阻断等级 |
-| 视觉配置不同，但可以共用通用资源 | `test_visual_configs_may_share_common_resources_but_not_most_visuals` | 公共字体放在 shared_files 中合法共用；视觉资产重合 20% 通过，40% 被拒 |
-| 只换图片、没有玩法改造 | `test_image_swap_without_gameplay_change_is_not_production_capability` | 没有玩法改动时拒绝 Creator Ready，状态标为 visual-only；只改表现条目的“玩法改动”被拒；用 debug 输入跑的循环被拒 |
-| 原版行为未知时允许 EXTENSION、不允许 PARITY | `test_unknown_original_allows_extension_but_never_parity` | UNKNOWN 或 INFERRED 的条目标为 PARITY 被拒；未显式标为 EXTENSION 时不能实现；REPLACEMENT 必须写差异；报告分别统计三类 |
-| 核心代码变更后旧 QA 失效 | `test_core_change_invalidates_related_qa`、`test_creator_ready_…` | 改动核心后等级降为 NONE，声明报错，条目标为 stale；用 code_paths 限定在无关目录的条目不受影响；改动核心后旧的 Creator 测试配置失效 |
-| 高优先级缺口长期未完成时不能只做打磨 | `test_high_priority_gap_blocks_endless_polish_and_research` | 连续第 5 个打磨任务被拒（POLISH_BLOCKED），`next` 的第一项是阻断等级的核心缺口；写明理由可以覆盖；研究预算用完后再研究被拒，并建议改用成熟组件 |
-| 长任务超时后的安全恢复 | `test_long_task_timeout_is_recovered_safely` | 未超时的任务不能 recover；超时后 STALLED；recover restart 记为 TIMED_OUT、计入失败、只提示结束记录的 pid；abandon 后交接检查不再报 ACTIVE |
-| 旧状态可读、升级只做加法 | `test_records_from_1_0_0_stay_readable_and_upgrade_is_additive` | 1.0.0 格式（无 discovery、无 RE03、无新字段、旧规则下的等级声明）可以校验通过，只给出提示；upgrade 后已有条目内容不变 |
-| 权利三项独立 | `test_rights_are_separate_and_user_approval_does_not_replace_rights_holder` | 用户的批准不能通过 RE03；RE02 不能自审；记录状态始终注明“剩余风险不为零”；技术等级不受影响 |
-| 测试素材不得来自隔离材料 | `test_probe_content_must_not_come_from_quarantined_research` | 来自 QUARANTINE 路径的资产被拒 |
-| 执行边界 | `test_legally_reusable_code_path`、`test_code_that_cannot_be_legally_reused` | reviewed/sandboxed 必须写说明；隔离材料不能是 reviewed |
-
-### 保留的 1.0.0 场景（全部继续通过）
-空项目启动、已有项目接管、代码可合法复用、代码不能合法复用、无法动态运行原作、逻辑完成但表现未完成、表现域不能整体跳过、两套测试配置、中断后恢复、不同 Agent 接续、v4 项目迁移（v4 记录字节不变，v4 与本 Skill 的 validate 都通过）、v3 项目被拒、模板与 v4 一致、证据不覆盖、历史删改被发现、Base 升版本后重新验证、报告另存、CRLF 安装、CLI。
-
-### 变异检查（更正）
-方法：把整个 Skill 目录复制到临时位置，只把副本中的一条规则改为失效，为副本重新生成清单，然后在副本中运行对应的测试；同时运行一个不做修改的对照组，它必须通过。
-
-结果：对照组通过，以下 11 条规则改坏后，对应测试都会失败。
-- 玩法改动是必需的
-- 原版行为未知时禁止 PARITY
-- 代码指纹过期
-- 阻止连续打磨
-- RE03 必须由权利人批准
-- 视觉资产重合上限
-- 必须完成特有能力发现
-- 表现条目必须有运行时证据
-- 测试配置的核心指纹
-- 隔离模块不可复用
-- RE02/RE03 批准必须来自外部（不可自审）
-
-“测试配置的核心指纹”最初没有被抓到，已补充断言。
-
-**更正**：1.0.0 报告中写的“4 项变异检查通过”用的是另一种方法。该方法在临时位置加载工具副本，但副本中读取清单的函数仍指向原路径，结果测试都在初始化阶段就出错，而不是因为抓到了变异，因此那次结论无效。本次已用上面的方法重新验证，并覆盖了那 4 条规则。
-
-## game-production 4.1.0
-`python -m unittest discover -s tests -v`：**32/32 通过**（本次未修改 game-production 的代码）。
-
-## 其他检查
-- README 中的四段启动提示词与对应的提示词文件逐字一致。
-- 仓库内所有相对 Markdown 链接都指向存在的文件。
-- 两份 SHA256SUMS（根目录、`skills/game-reverse-engineering/`）与实际文件一致。
-- 扫描私钥、令牌和密码赋值：无命中。经验文档只引用各项目内的相对路径。
-
-## 已知限制
-- 31 个测试在本机运行约 3 分钟。耗时主要在带缩进的 JSON 读写，单条命令的实际使用影响很小（每次保存约 0.07 秒）。
-- 工具不运行原作，不调用反编译器，不生成美术，不做法律判断。本报告不代表任何一款 Base 或游戏已经达到相应等级。
+## 不能自动判断、需要人工或真实执行的事项
+- **独立 Agent 复用验收没有在真实 Base 上执行过**：工具和测试只证明记录规则正确。资产数、步骤、人工介入、首次成功耗时等字段尚无真实数据；本仓库的交付状态因此只能说明“机制已实现”，不能说明任何 Base 已经 CREATOR_READY。
+- **原版方法研究结论是否正确**、视觉是否与原版一致、玩法与画面品质、权利与法律结论：工具只核对证据种类、哈希和判定自洽。
+- **解耦门禁是文本扫描**：以其他方式写死的玩法要靠独立复用验收发现。
+- **game-creation-polish 未在真实游戏上端到端运行**；美术生产、浏览器 QA 和打包只有规则和记录格式。
+- **macOS / Linux**：路径处理统一使用 pathlib 与 POSIX 相对路径，`{python}` 与 `argv_windows` / `argv_posix` 处理平台差异，但本轮只在 Windows 上运行过测试。
+- 干净首次使用的缓存隔离只重定向了常见包管理器的缓存环境变量，不能保证所有工具链都不读取全局缓存。

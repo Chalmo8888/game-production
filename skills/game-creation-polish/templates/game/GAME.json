@@ -1,0 +1,80 @@
+{
+  "schema_version": "3.0",
+  "kit_version": "0.1.0-preview",
+  "game_id": "TO_BE_SET",
+  "title": "",
+  "brief": {
+    "user_request": "",
+    "theme": "",
+    "goal": ""
+  },
+  "base_binding": {
+    "base_id": "",
+    "version": "",
+    "history": []
+  },
+  "stages": {
+    "G0": "DONE",
+    "G1": "NOT_STARTED",
+    "G2": "NOT_STARTED",
+    "G3": "NOT_STARTED",
+    "G4": "NOT_STARTED",
+    "G5": "NOT_STARTED",
+    "G6": "NOT_STARTED",
+    "G7": "NOT_STARTED"
+  },
+  "readiness": "IN_PROGRESS",
+  "publication_status": "NOT_AUTHORIZED",
+  "scope": {
+    "runtime": "user_selected",
+    "platforms": [],
+    "formal_assets": "depends_on_target",
+    "must_deliver": [],
+    "out_of_scope": []
+  },
+  "acceptance_contract": {
+    "version": 1,
+    "defined": false,
+    "basis": "Derive from the user's goal and GAME_DESIGN.md section 15; never lower later without a recorded reason."
+  },
+  "known_commands": {
+    "build": "",
+    "preview": "",
+    "test": "",
+    "asset_import": "",
+    "package": ""
+  },
+  "platform_contract": {
+    "source": "",
+    "version": "",
+    "verified": false
+  },
+  "release": {
+    "artifact_path": "",
+    "artifact_sha256": "",
+    "subject_revision": ""
+  },
+  "assignment": {
+    "agent_label": "",
+    "allowed_stages": [],
+    "since_utc": "",
+    "note": ""
+  },
+  "core_extensions": {
+    "game_local": [],
+    "proposed_for_base": [],
+    "merged_into_base": []
+  },
+  "open_defects": [],
+  "current_task_id": "",
+  "next_action": "G1: write design/GAME_DESIGN.md from the brief and the bound Base capabilities.",
+  "last_checkpoint_utc": "",
+  "retrospective": {
+    "summary": "",
+    "reusable_capabilities": [],
+    "asset_lessons": [],
+    "qa_lessons": [],
+    "compatibility_issues": [],
+    "core_feedback": []
+  }
+}

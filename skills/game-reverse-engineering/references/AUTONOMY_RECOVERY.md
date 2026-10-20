@@ -21,8 +21,16 @@
 >
 > 执行环境中断时，保存精确状态与恢复入口，不假装仍在后台运行。
 
-## 2. 授权范围
+## 2. 授权范围与停止状态
 默认范围是“研究 + Base”。交付目标是 RE_STATE 中的 `target_level`（默认 CREATOR_READY），工作区的 `game_quota = 0`。达到目标就交付并停止：不自动创建游戏，不无限扩展原作细节。
+
+用 `gre.py stop --status <状态> --reason "..."` 记录运行状态：
+- `TARGET_REACHED`：工具核对证据推导的等级，未达到 `target_level` 时拒绝，并列出缺口。
+- `HANDOFF_READY`：本次分配的阶段已完成，交给下一个 Agent。
+- `EXTERNAL_BLOCKED`、`RUNTIME_LIMIT`、`USER_PAUSED`：必须写明真实原因（阻断是什么、试过什么、怎样解除）。
+独立复用验收无法组织时，可以在其他工作全部完成后以 EXTERNAL_BLOCKED 停止并说明，等级保持 CREATOR_CANDIDATE。
+
+**预算**：RE_STATE 的 `budget` 记录是否允许付费工具及其上限；未配置时视为零，不认为订阅包含所有 API。
 
 ## 3. 价值驱动的任务选择（`gre.py next`）
 每轮先运行 `gre.py next`。它为每个未完成的条目打分，并给出建议动作：
@@ -73,7 +81,10 @@
 - 条目验证时记录 Base 版本、相关代码指纹（`code_paths`）和 Git HEAD。相关代码改动后，旧结论自动过期（`status` 中的 Stale verifications），需要重新验证。Creator 测试配置记录整个核心的指纹。
 - HISTORY.jsonl 只追加。删除或修改旧证据、删除条目历史都会被 `validate` 发现。
 
-## 7. 检查点与恢复
+## 7. Git 基线、检查点与恢复
+- 开始前记录 `git status` 与 HEAD，不覆盖别人的未提交改动；只提交本任务的改动，不 force push。
+- 核心与 starter 路径有未提交改动时，工具不承认 CREATOR_CANDIDATE 及以上等级：首次使用门禁测试的是已提交的 HEAD，交付的必须就是被测试的。
+- 等级声明记录当时的 Git HEAD 和核心指纹，便于事后复核。
 - 在完成实质任务后、做风险改动前、会话余量不足时和交接前，运行 `gre.py checkpoint --next "<下一项具体任务和命令>"`，并创建只包含本任务改动的本地 Git 提交。
 - 中断后（同一 Agent 的新会话、另一个 Agent 或另一台设备）：
   1. 运行 `gre.py resume`。
@@ -90,7 +101,7 @@
   在 REUSE.json 中为每个外部模块记录 `execution`（never / sandboxed / reviewed）和 `execution_note`。外部模块缺少这项记录时，`validate` 会提示。
 - 研究材料放在 `research-private/` 或 QUARANTINE 模块的 `research_paths` 中，不进入 Git。核心路径不能位于其中，Creator 测试配置的内容也不能来自这些位置；商业代码只能来自 KEEP/ADAPT 模块；测试素材必须是原创的，或者许可清楚。
 
-## 9. 防护能力核对（1.1.0）
+## 9. 防护能力核对
 | 要求 | 支持方式 |
 |---|---|
 | 测试结果绑定代码版本 | 条目记录 Base 版本、代码指纹和 HEAD；Creator 测试配置记录核心指纹 |
@@ -100,6 +111,9 @@
 | 中断恢复 | checkpoint / resume / `task recover` / handoff |
 | 不可信仓库与构建脚本 | REUSE `execution` 记录 + 本节规则（工具本身从不执行外部代码） |
 | 研究、商业代码与资产来源隔离 | QUARANTINE 不得进入核心或测试配置；REUSE 只能来自 KEEP/ADAPT；三项权利记录分开 |
+| 交付物就是被测试的版本 | 首次使用克隆已提交的 HEAD；核心/starter 未提交改动阻止创作者等级 |
+| 停止时不夸大 | `stop --status TARGET_REACHED` 由证据核对；其他停止状态必须写原因 |
+| 共享记录不含本机信息 | `validate` 拒绝 `re/` 记录中的本机绝对路径；本机信息只写 `.production/local/` |
 
 ## 10. 权限
 默认允许项目内的开发、测试、本地构建和本地提交。未经授权不 push、不付费、不公开部署、不删除无关文件、不提交研究原件、不绕过登录、付费或访问限制。

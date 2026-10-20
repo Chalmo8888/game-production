@@ -69,6 +69,6 @@
 - 研究产出必须回写到条目（original.refs、evidence_level、dynamic_gap），否则这次研究不算完成。
 
 ## 8. 研究产物
-- `re/TECH_SURVEY.md`、`re/DYNAMIC_STUDY.md`、PARITY 中的 `original` 字段、`.production/research/<id>/MECHANICS_MATRIX.md`（v4 兼容）。
+- `re/TECH_SURVEY.md`、`re/DYNAMIC_STUDY.md`、PARITY 中的 `original` 字段、`re/PRESENTATION.json` 中的参考盘点、调查项与帧研究；工作区共用的 `.production/research/<id>/MECHANICS_MATRIX.md` 可选。
 - 每个结论可以有一份小的证据卡（例如“敌弹存活窗口 0<x<590”），带来源位置和哈希。
 - 文档中引用的规格文件必须存在。

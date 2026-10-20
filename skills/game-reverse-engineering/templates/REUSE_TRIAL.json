@@ -1,0 +1,6 @@
+{
+  "schema_version": "gre-1.0",
+  "note": "Independent reuse trial：由没有参与逆向和 Base 开发的 Agent，只读正式创作文档，做出一个可玩切片。start 记录核心文件清单，finish 自动统计核心改动数量。无法组织时保持 NOT_RUN，不得宣称通过。",
+  "status": "NOT_RUN",
+  "trials": []
+}

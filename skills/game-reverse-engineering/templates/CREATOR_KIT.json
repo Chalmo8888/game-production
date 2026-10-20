@@ -1,0 +1,55 @@
+{
+  "schema_version": "gre-1.0",
+  "note": "Creator kit：下游创作者不研究原版源码也能制作和接入资源所需的全部材料。每项给出路径，或写明不适用于本游戏的原因（start_here、new_pack_tool、asset_validator、runnable_example 不能不适用）。只交付适合目标游戏的材料，不强加固定的美术方法。",
+  "items": {
+    "start_here": {
+      "paths": [],
+      "na_reason": ""
+    },
+    "scene_design_template": {
+      "paths": [],
+      "na_reason": ""
+    },
+    "camera_window_rules": {
+      "paths": [],
+      "na_reason": ""
+    },
+    "scene_geometry_contract": {
+      "paths": [],
+      "na_reason": ""
+    },
+    "character_spec": {
+      "paths": [],
+      "na_reason": ""
+    },
+    "layer_rules": {
+      "paths": [],
+      "na_reason": ""
+    },
+    "animation_import": {
+      "paths": [],
+      "na_reason": ""
+    },
+    "ui_theme": {
+      "paths": [],
+      "na_reason": ""
+    },
+    "new_pack_tool": {
+      "paths": [],
+      "na_reason": ""
+    },
+    "asset_validator": {
+      "paths": [],
+      "na_reason": ""
+    },
+    "runnable_example": {
+      "paths": [],
+      "na_reason": ""
+    },
+    "concept_to_runtime": {
+      "paths": [],
+      "na_reason": ""
+    }
+  },
+  "history": []
+}

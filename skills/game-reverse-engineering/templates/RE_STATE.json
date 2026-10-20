@@ -1,10 +1,13 @@
 {
   "schema_version": "gre-1.0",
-  "skill_version": "1.2.0",
+  "skill_version": "2.0.0",
   "base_id": "TO_BE_SET",
   "target_level": "CREATOR_READY",
   "core_paths": [],
   "content_paths": [],
+  "starter_paths": [],
+  "content_terms": [],
+  "decoupling_allow": [],
   "claimed_level": "NONE",
   "claimed_for_version": "",
   "level_history": [],
@@ -12,6 +15,15 @@
     "agent_label": "",
     "scope": "",
     "since_utc": ""
+  },
+  "run": {
+    "status": "RUNNING",
+    "reason": "",
+    "utc": ""
+  },
+  "budget": {
+    "paid_tools_allowed": false,
+    "limits": []
   },
   "tasks": [],
   "task_log": [],

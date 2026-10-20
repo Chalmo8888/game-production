@@ -3,6 +3,7 @@ import importlib.util
 import io
 import json
 import shutil
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -13,14 +14,6 @@ SKILL_ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("gre_tool", SKILL_ROOT / "scripts" / "gre.py")
 gre = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gre)
-
-REPO_ROOT = SKILL_ROOT.parents[1]
-V4_SCRIPT = REPO_ROOT / "scripts" / "project.py"
-v4 = None
-if V4_SCRIPT.is_file():
-    v4_spec = importlib.util.spec_from_file_location("game_production_v4", V4_SCRIPT)
-    v4 = importlib.util.module_from_spec(v4_spec)
-    v4_spec.loader.exec_module(v4)
 
 VISUALS = ("hero.png", "enemy.png", "map.png", "ui.png", "fx.png")
 
@@ -89,12 +82,25 @@ class Fixture(unittest.TestCase):
         self.verify_group("logic")
 
     def study_all(self, level="STATIC_ONLY"):
+        common = dict(inputs="logic position in tiles", outputs="screen pixels", data_structures="Transform{x,y,sx,sy,rot,pivot,anchor,parent}",
+                      constraints="integer pixel snapping", unknowns="none known", reuse="REIMPLEMENT on the Base renderer")
         for tid in gre.PR_TOPICS:
             ref = self.write("research/%s.txt" % tid, "render code listing %s\n" % tid)
+            if tid == gre.PRODUCTION_TOPIC:
+                gre.present_study(self.ctx(), tid, level="INFERRED", evidence=ref, kind="data", observed="atlas json layout",
+                                  gap="no author documentation of the production tools", decision="D", relation="different_method",
+                                  base_method="own atlas packer script", items=[], **common)
+                continue
             gre.present_study(self.ctx(), tid, level=level, evidence=ref, kind="source", observed="render path traced in source",
-                              gap="not compared frame by frame with the running original", inputs="logic position in tiles",
-                              outputs="screen pixels", data_structures="Transform{x,y,sx,sy,rot,pivot,anchor,parent}",
-                              constraints="integer pixel snapping", unknowns="none known", reuse="REIMPLEMENT on the Base renderer")
+                              gap="not compared frame by frame with the running original", decision="B", relation="same_method",
+                              original_method="draw call per sprite sorted by sort key %s" % tid,
+                              base_method="same composition rebuilt on the Base renderer", **common)
+
+    def reference_and_frames(self):
+        inventory = self.write("research/reference-inventory.md", "original build cannot start; no legal original pixels\n")
+        gre.present_reference(self.ctx(), "UNAVAILABLE", "PLACEHOLDER_ONLY", ["battle"], [(inventory, "inventory")])
+        walk = self.write("research/frame-battle-walkthrough.md", "source walkthrough of one battle frame\n")
+        gre.present_frame(self.ctx(), "battle", "source", walkthrough=walk)
 
     def px(self, cid, kinds=None, bind=None, **kwargs):
         kinds = kinds or [sorted(gre.PX_CHECKS[cid])[0]]
@@ -117,7 +123,9 @@ class Fixture(unittest.TestCase):
                 "PX03": dict(kinds=["runtime-capture"]), "PX04": dict(kinds=["recording"]), "PX05": dict(kinds=["trace"]),
                 "PX06": dict(kinds=["measurement"], bind=[anchors]),
                 "PX07": dict(kinds=["measurement"], swap=self.themes()),
-                "PX08": dict(kinds=["measurement", "measurement"], resolutions=["1280x720", "1920x1080"])}
+                "PX08": dict(kinds=["measurement", "measurement"], resolutions=["1280x720", "1920x1080"]),
+                "PX09": dict(kinds=["measurement"], bind=[self.write("scenes/geometry.json", '{"window": [0, 0, 960, 540], "board": "data"}')])}
+        self.reference_and_frames()
         for cid, args in plan.items():
             if cid not in skip:
                 self.px(cid, **args)
@@ -149,17 +157,94 @@ class Fixture(unittest.TestCase):
             messages += gre.probe_loop(self.ctx(), pid, ["start", "play", "win", "result", "restart"], loop_input, [(run, "recording")])
         return messages
 
-    def make_creator_ready(self):
+    # ---- creator gates (needs Git: the first-use gate tests a clean checkout of HEAD)
+    def git(self, *args):
+        return subprocess.run(["git", "-C", str(self.root), "-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid",
+                               "-c", "commit.gpgsign=false", "-c", "core.autocrlf=false"] + list(args),
+                              check=True, capture_output=True, text=True).stdout.strip()
+
+    def commit(self, message="fixture"):
+        if not (self.root / ".git").exists():
+            self.git("init", "-q")
+        self.git("add", "-A")
+        self.git("commit", "-q", "--allow-empty", "-m", message)
+
+    TOOLS = {
+        "tools/new_pack.py": "import json, pathlib, sys\nd = pathlib.Path('content/packs') / sys.argv[1]\nd.mkdir(parents=True, exist_ok=True)\n"
+                             "(d / 'pack.json').write_text(json.dumps({'id': sys.argv[1], 'background': 'bg.png', 'hero': 'hero.png'}))\n",
+        "tools/import_assets.py": "import pathlib, shutil, sys\nfor n in ('bg.png', 'hero.png'):\n"
+                                  "    shutil.copy('content/starter/' + n, 'content/packs/%s/%s' % (sys.argv[1], n))\n",
+        "tools/validate_assets.py": "import json, pathlib, sys\nbad = []\nfor pack in pathlib.Path('content').rglob('pack.json'):\n"
+                                    "    data = json.loads(pack.read_text())\n"
+                                    "    bad += [str(pack.parent / data[k]) for k in ('background', 'hero') if not (pack.parent / data[k]).is_file()]\n"
+                                    "print('missing: %s' % bad if bad else 'assets ok')\nsys.exit(1 if bad else 0)\n",
+        "tools/build.py": "import pathlib\npathlib.Path('dist').mkdir(exist_ok=True)\npathlib.Path('dist/index.html').write_text('<canvas></canvas>')\n",
+        "tools/launch.py": "import pathlib, sys\nsys.exit(0 if pathlib.Path('dist/index.html').is_file() else 2)\n",
+        "tools/playtest.py": "print('start play end result restart')\n",
+        "tools/regression.py": "print('rules regression ok')\n",
+    }
+    STEPS = [("create-pack", "create_content_pack", ["tools/new_pack.py", "my-pack"]),
+             ("import-assets", "import_assets", ["tools/import_assets.py", "my-pack"]),
+             ("validate", "validate_assets", ["tools/validate_assets.py"]),
+             ("build", "build", ["tools/build.py"]),
+             ("launch", "launch_runtime", ["tools/launch.py"]),
+             ("playtest", "playtest", ["tools/playtest.py"]),
+             ("missing-resource-blocks", "negative_missing_resource", ["tools/validate_assets.py"]),
+             ("regression", "regression", ["tools/regression.py"])]
+
+    def creator_gates(self, run=True):
+        """Starter content outside the core, a full creator kit and a passing clean first-use run on a commit."""
+        self.write("content/starter/pack.json", json.dumps({"id": "frost-meadow", "name": "Frost Meadow Pack",
+                                                             "background": "bg.png", "hero": "hero.png"}))
+        self.write("content/starter/bg.png", b"starter background")
+        self.write("content/starter/hero.png", b"starter hero")
+        for relative, code in self.TOOLS.items():
+            self.write(relative, code)
+        quick = "\n".join("- `python %s`" % " ".join(argv) for _, _, argv in self.STEPS)
+        self.write("docs/START_HERE.md", "# 创作者快速开始\n\n" + quick + "\n")
+        docs = {}
+        for key in gre.KIT_ITEMS:
+            if key not in ("start_here", "new_pack_tool", "asset_validator", "runnable_example", "concept_to_runtime"):
+                docs[key] = self.write("docs/creator/%s.md" % key, "# %s\nrules with examples\n" % key)
+        gre.set_paths(self.ctx(), None, ["content/starter"], None)
+        for key, path in dict(docs, start_here="docs/START_HERE.md", new_pack_tool="tools/new_pack.py",
+                              asset_validator="tools/validate_assets.py", runnable_example="content/starter").items():
+            gre.kit_set(self.ctx(), key, [path])
+        gre.kit_set(self.ctx(), "concept_to_runtime", [], na_reason="pixel-art game without a concept-art stage")
+        spec = self.ctx().load("FIRST_USE.json")
+        spec["start_here"] = "docs/START_HERE.md"
+        spec["steps"] = [dict({"id": sid, "kind": kind, "argv": ["{python}"] + argv, "timeout_min": 2},
+                              **({"remove": ["content/starter/hero.png"], "expect": "failure"} if kind == "negative_missing_resource" else {}))
+                         for sid, kind, argv in self.STEPS]
+        self.ctx().save("FIRST_USE.json", spec)
+        self.commit("base with creator kit")
+        if run:
+            return gre.first_use_run(self.ctx())
+
+    def independent_trial(self, agent="agent-independent", independence="independent_reviewer", result="PASS", core_edit=False):
+        gre.trial_start(self.ctx(), agent, independence, ["docs/START_HERE.md"])
+        if core_edit:
+            self.write("engine/core/sim.ts", "export const step = 1; // trial needed a core hack\n")
+        clip = self.write("qa/trial/slice-%s.mp4" % agent, ("slice by " + agent).encode())
+        return gre.trial_finish(self.ctx(), result, {k: True for k in gre.TRIAL_CHECKS}, [(clip, "recording")], assets=6, steps=9,
+                                manual=[], minutes=35.0, unverified=["audio mix on mobile"])
+
+    def make_creator_candidate(self):
         self.logic_ready()
         self.verify_group("presentation")
         self.verify_group("creator")
         self.present_ready()
         self.probe("probe-a", "冰原像素风")
         self.probe("probe-b", "沙漠水彩风")
+        self.creator_gates()
+
+    def make_creator_ready(self):
+        self.make_creator_candidate()
+        self.independent_trial()
 
 
 class StartAndTakeoverTest(Fixture):
-    def test_empty_folder_start_creates_v4_compatible_workspace(self):
+    def test_empty_folder_start_creates_workspace_and_creator_records(self):
         ctx = self.start()
         workspace = json.loads((self.root / gre.WORKSPACE_FILE).read_text(encoding="utf-8"))
         self.assertEqual(workspace["run"]["scope"]["target"], "base")
@@ -167,7 +252,8 @@ class StartAndTakeoverTest(Fixture):
         self.assertEqual(workspace["research"][0]["sources"], ["https://example.com/original-2d-game"])
         self.assertEqual(ctx.current_version(), "0.1.0")
         for name in ("RE_STATE.json", "PARITY.json", "REUSE.json", "PROBES.json", "GATES.json", "TECH_SURVEY.md",
-                     "DYNAMIC_STUDY.md", "BASE_HANDOFF.md", "HISTORY.jsonl"):
+                     "DYNAMIC_STUDY.md", "BASE_HANDOFF.md", "HISTORY.jsonl", "PRESENTATION.json", "CREATOR_KIT.json",
+                     "FIRST_USE.json", "REUSE_TRIAL.json"):
             self.assertTrue(ctx.path(name).is_file(), name)
         installed = self.root / gre.SKILL_PATH
         expected = {p for p, _ in gre.kit_manifest()} | {"SHA256SUMS.txt"}
@@ -175,8 +261,7 @@ class StartAndTakeoverTest(Fixture):
         self.assertIn("research-private/", (self.root / ".gitignore").read_text(encoding="utf-8"))
         self.assertEqual(self.errors(), [])
         self.assertEqual(gre.derive_level(ctx), "NONE")
-        if v4:
-            self.assertEqual(v4.validate_workspace(self.root)[0], [])
+        self.assertFalse((ctx.base_dir / "GATES.json").exists(), "no retired Base gate file is created")
 
     def test_existing_project_takeover_keeps_code_and_rules(self):
         self.write("AGENTS.md", "Team rule: keep the renderer\n")
@@ -194,36 +279,27 @@ class StartAndTakeoverTest(Fixture):
         self.assertEqual((self.root / "AGENTS.md").read_text(encoding="utf-8").count(gre.AGENTS_MARKERS[0]), 1)
         self.assertEqual(self.errors(), [])
 
-    def test_v3_workspace_is_refused_with_migration_hint(self):
+    def test_v3_workspace_is_refused_with_conversion_hint(self):
         self.write(".production/PROJECT.json", "{}\n")
-        with self.assertRaisesRegex(ValueError, "migrate"):
+        with self.assertRaisesRegex(ValueError, "v3 single-game records.*9fc83fe"):
             gre.init(self.root, "core", "0.1.0", "engine", ["engine"], [])
 
-    @unittest.skipIf(v4 is None, "game-production v4 script not available next to this Skill")
-    def test_v4_project_migration_keeps_v4_records(self):
-        self.write("engine/core/sim.ts", "export const step = 1;\n")
-        v4.init_workspace(self.root, name="v4 studio", target="full_pipeline")
-        v4.base_register(v4.Workspace(self.root), "core", "1.0.0", "engine", "Core")
-        v4.game_create(v4.Workspace(self.root), "game-01", "core")
-        before = {k: v for k, v in tree(self.root).items() if not k.startswith(".production/local/")}
+    def test_existing_workspace_with_games_is_adopted_without_changes(self):
+        self.start()
+        workspace_path = self.root / gre.WORKSPACE_FILE
+        workspace = json.loads(workspace_path.read_text(encoding="utf-8"))
+        workspace["games"].append({"id": "game-01", "path": "games/game-01", "records": "games/game-01/.production", "layout": "standard"})
+        workspace_path.write_bytes(gre.json_bytes(workspace))
+        self.write("games/game-01/.production/GAME.json", '{"game_id": "game-01"}\n')
+        before = {k: v for k, v in tree(self.root).items() if not k.startswith((".production/local/", ".production/bases/core/re/"))}
         messages = gre.init(self.root, "core", "9.9.9", "", ["engine/core"], [])
-        self.assertTrue(any("Adopting existing Base core@1.0.0" in m for m in messages))
+        self.assertTrue(any("Adopting existing Base core@0.1.0" in m for m in messages))
         after = tree(self.root)
         for path, value in before.items():
-            if path in ("AGENTS.md", ".gitignore"):
-                continue
-            self.assertEqual(after.get(path), value, path)
-        self.assertEqual((self.root / "AGENTS.md").read_text(encoding="utf-8").count(v4.AGENTS_V4[0]), 1)
-        self.assertEqual(self.ctx().current_version(), "1.0.0")
-        self.assertEqual(v4.validate_workspace(self.root)[0], [])
+            if path not in (".gitignore", "AGENTS.md"):
+                self.assertEqual(after.get(path), value, path)
+        self.assertEqual(self.ctx().current_version(), "0.1.0")
         self.assertEqual(self.errors(), [])
-
-    @unittest.skipIf(not (REPO_ROOT / "templates").is_dir(), "repository templates not available")
-    def test_bundled_v4_templates_match_game_production(self):
-        for relative in ("WORKSPACE.json", "RIGHTS_LEDGER.md", "BACKLOG.md", "HANDOFF.md", "ENVIRONMENT.local.json",
-                         "MECHANICS_MATRIX.md", "base/BASE.json", "base/GATES.json", "base/CAPABILITIES.md"):
-            self.assertEqual((SKILL_ROOT / "templates/v4" / relative).read_bytes(),
-                             (REPO_ROOT / "templates" / relative).read_bytes(), relative)
 
     def test_records_from_1_0_0_stay_readable_and_upgrade_is_additive(self):
         self.start()
@@ -476,7 +552,7 @@ class LevelTest(Fixture):
         gre.set_level(self.ctx(), "PRESENTATION_READY")
         self.probe("probe-a", "冰原像素风")
         with self.assertRaisesRegex(ValueError, "valid: 1"):
-            gre.set_level(self.ctx(), "CREATOR_READY")
+            gre.set_level(self.ctx(), "CREATOR_CANDIDATE")
         shutil.copytree(str(self.root / "probes/probe-a"), str(self.root / "probes/probe-copy"))
         evidence = {c: [("qa/probes/probe-a-%s.png" % c, "runtime-capture")] for c in gre.PROBE_CATEGORIES}
         gre.probe_record(self.ctx(), "probe-copy", "copy", ["probes/probe-copy/config.json"], ["probes/probe-copy/assets"], evidence,
@@ -491,6 +567,9 @@ class LevelTest(Fixture):
         probes["probes"] = [p for p in probes["probes"] if p["id"] != "probe-copy"]
         self.ctx().save("PROBES.json", probes)
         self.probe("probe-b", "沙漠水彩风")
+        self.creator_gates()
+        gre.set_level(self.ctx(), "CREATOR_CANDIDATE")
+        self.independent_trial()
         gre.set_level(self.ctx(), "CREATOR_READY")
         self.assertEqual(self.errors(strict=True), [])
         self.write("engine/core/sim.ts", "export const step = 2; // per-theme hack\n")
@@ -509,7 +588,7 @@ class LevelTest(Fixture):
         self.probe("probe-b", "沙漠水彩风", shared_from="probe-a", share_visuals=1)
         self.assertEqual(gre.derive_level(self.ctx()), "CREATOR_READY", "20% shared visuals is within the limit")
         self.probe("probe-b", "沙漠水彩风", shared_from="probe-a", share_visuals=2)
-        problems = gre.level_problems(self.ctx(), "CREATOR_READY", gre.snapshot(self.ctx()))
+        problems = gre.level_problems(self.ctx(), "CREATOR_CANDIDATE", gre.snapshot(self.ctx()))
         self.assertTrue(any("40% of visual assets are identical" in p for p in problems))
 
     def test_image_swap_without_gameplay_change_is_not_production_capability(self):
@@ -519,15 +598,15 @@ class LevelTest(Fixture):
         self.verify_group("creator")
         self.probe("probe-a", "冰原像素风", gameplay=False)
         self.probe("probe-b", "沙漠水彩风", gameplay=False)
-        problems = gre.level_problems(self.ctx(), "CREATOR_READY", gre.snapshot(self.ctx()))
+        problems = gre.level_problems(self.ctx(), "CREATOR_CANDIDATE", gre.snapshot(self.ctx()))
         self.assertTrue(any("swapping images alone" in p for p in problems))
         self.assertIn("visual-only (not production evidence): probe-a, probe-b", gre.status_report(self.ctx()))
         messages = self.probe("probe-a", "冰原像素风", gameplay_items=("P1-01",))
         self.assertTrue(any("must change a gameplay mechanic" in m for m in messages))
         messages = self.probe("probe-b", "沙漠水彩风", loop_input="debug")
         self.assertTrue(any("normal input" in m for m in messages))
-        with self.assertRaisesRegex(ValueError, "Cannot claim CREATOR_READY"):
-            gre.set_level(self.ctx(), "CREATOR_READY")
+        with self.assertRaisesRegex(ValueError, "Cannot claim CREATOR_CANDIDATE"):
+            gre.set_level(self.ctx(), "CREATOR_CANDIDATE")
 
     def test_probe_content_must_not_come_from_quarantined_research(self):
         self.start()
@@ -562,8 +641,8 @@ class LevelTest(Fixture):
         gre.gate_set(self.ctx(), "RE03", "PASS", criteria="original sprites", reviewer="rights holder",
                      independence="external_approval", subject="0.1.0", evidence="qa/owner-grant.md", role="rights_holder")
         self.assertEqual(gre.derive_level(self.ctx()), "CREATOR_READY")
-        self.assertIn("code source review (v4 B02)=UNVERIFIED", gre.status_report(self.ctx()))
-        self.assertIn("release rights record INCOMPLETE", gre.status_report(self.ctx()))
+        self.assertIn("release rights record complete", gre.status_report(self.ctx()))
+        self.assertIn("residual rights risk is never zero", gre.status_report(self.ctx()))
         self.assertEqual(self.errors(), [])
 
     def test_base_version_bump_requires_reverification(self):
@@ -623,6 +702,9 @@ class PresentationTest(Fixture):
         self.assertTrue(any("record the dynamic comparison" in p for p in self.gate()))
         self.study_all()
         gre.present_compare(self.ctx(), "UNAVAILABLE", [], reason="original cannot run")
+        with self.assertRaisesRegex(ValueError, "Presentation Reconstruction Gate: record what reference material exists"):
+            gre.set_level(self.ctx(), "PRESENTATION_READY")
+        self.reference_and_frames()
         with self.assertRaisesRegex(ValueError, "Presentation Reconstruction Gate: PX01"):
             gre.set_level(self.ctx(), "PRESENTATION_READY")
         self.assertEqual(gre.candidates(self.ctx())[0]["id"], "presentation-reconstruction")
@@ -688,10 +770,14 @@ class PresentationTest(Fixture):
         with self.assertRaisesRegex(ValueError, "screenshots alone support at most INFERRED"):
             gre.present_study(self.ctx(), "PR03", level="STATIC_ONLY", evidence=shot, kind="screenshot", observed="layers visible",
                               gap="not traced")
+        with self.assertRaisesRegex(ValueError, "inferred or unknown methods are D"):
+            gre.present_study(self.ctx(), "PR03", level="INFERRED", evidence=shot, kind="screenshot", observed="layers visible",
+                              gap="draw order inferred from two screenshots", decision="B", relation="same_method")
         gre.present_study(self.ctx(), "PR03", level="INFERRED", evidence=shot, kind="screenshot", observed="layers visible",
                           gap="draw order inferred from two screenshots; not traced in code or at runtime",
                           inputs="?", outputs="frame", data_structures="unknown", constraints="unknown",
-                          unknowns="sort key, batching", reuse="REIMPLEMENT with a data-driven layer graph")
+                          unknowns="sort key, batching", reuse="REIMPLEMENT with a data-driven layer graph",
+                          decision="D", relation="different_method", base_method="data-driven layer graph")
         self.assertFalse(any(p.startswith("PRESENTATION PR03") for p in gre.study_problems(self.ctx(), gre.snapshot(self.ctx()))))
 
     def test_missing_dynamic_evidence_is_reported_not_hidden(self):
@@ -717,8 +803,6 @@ class PresentationTest(Fixture):
         self.assertEqual(gre.derive_level(self.ctx()), "LOGIC_READY")
         gre.upgrade(self.ctx())
         self.assertTrue(self.ctx().path("PRESENTATION.json").is_file())
-        if v4:
-            self.assertEqual(v4.validate_workspace(self.root)[0], [])
 
 
 class AutonomyAndHandoffTest(Fixture):
@@ -840,6 +924,289 @@ class AutonomyAndHandoffTest(Fixture):
             self.assertEqual(gre.main(["parity", "set"] + project + ["--item", "L1-01", "--status", "RESEARCHING"]), 0)
         self.assertIn("RECORD_CHECK_PASSED", out.getvalue())
         self.assertIn("Next tasks by value", out.getvalue())
+
+
+
+class OriginalPipelineFirstTest(Fixture):
+    """Generic failure modes: a method written as the original's that is not, corrections, placeholder pixels, self-evidence."""
+
+    def study(self, tid="PR03", **kwargs):
+        ref = self.write("research/%s-src.txt" % tid, "draw loop listing %s\n" % tid)
+        args = dict(level="STATIC_ONLY", evidence=ref, kind="source", observed="traced in source", gap="not run frame by frame",
+                    inputs="world state", outputs="draw list", data_structures="DrawItem{image, rect, sort}", constraints="none known",
+                    unknowns="none known", reuse="REIMPLEMENT", original_method="sort by y then layer", base_method="sort by y then layer")
+        args.update(kwargs)
+        return gre.present_study(self.ctx(), tid, **args)
+
+    def test_b_and_a_require_the_same_method_and_a_reusable_original(self):
+        self.start()
+        with self.assertRaisesRegex(ValueError, "a different method, downgrade or missing capability must be C"):
+            self.study(decision="B", relation="different_method")
+        with self.assertRaisesRegex(ValueError, "must disclose difference, reason, impact"):
+            self.study(decision="C", relation="different_method")
+        self.study(decision="C", relation="different_method",
+                   deviation={"difference": "single sorted list instead of per-layer buckets", "reason": "renderer batches by atlas",
+                              "impact": "objects on the same row may overlap differently"})
+        with self.assertRaisesRegex(ValueError, "A needs the original implementation as a legally reusable KEEP/ADAPT module"):
+            self.study("PR04", decision="A", relation="same_method")
+        self.write("third_party/anim/LICENSE", "MIT License\n")
+        gre.reuse_set(self.ctx(), "orig-anim", source_kind="open_source", license_="MIT", decision="KEEP", base_paths=["engine/core"],
+                      evidence="third_party/anim/LICENSE", execution="reviewed", execution_note="read before use; no scripts")
+        self.study("PR04", decision="A", relation="same_method", modules=["orig-anim"])
+
+    def test_unknown_or_inferred_methods_are_d_and_tools_are_never_guessed(self):
+        self.start()
+        with self.assertRaisesRegex(ValueError, "inferred or unknown methods are D"):
+            self.study(level="INFERRED", decision="B", relation="same_method")
+        with self.assertRaisesRegex(ValueError, "choose A, B or C instead of D"):
+            self.study(decision="D", relation="different_method")
+        with self.assertRaisesRegex(ValueError, "never infer a tool from a data format"):
+            self.study(gre.PRODUCTION_TOPIC, kind="data", decision="B", relation="same_method")
+        self.study(gre.PRODUCTION_TOPIC, kind="author-documentation", decision="B", relation="same_method")
+
+    def test_parity_claim_cannot_hide_a_changed_method(self):
+        self.start()
+        self.own_engine_reuse()
+        self.verify("P4-01", visual=True)
+        self.study(decision="C", relation="downgrade", items=["P4-01"],
+                   deviation={"difference": "no per-row occlusion", "reason": "time box", "impact": "units overlap scenery"})
+        problems = gre.presentation_problems(self.ctx(), gre.snapshot(self.ctx()))
+        self.assertTrue(any("P4-01 is claimed PARITY but PR03 records C/downgrade" in p for p in problems))
+        self.assertTrue(any("claimed PARITY but PR03" in e for e in self.errors()))
+
+    def test_correction_marks_downstream_checks_and_items_stale(self):
+        self.start()
+        self.logic_ready()
+        self.verify_group("presentation")
+        self.present_ready()
+        self.assertEqual(gre.presentation_problems(self.ctx(), gre.snapshot(self.ctx())), [])
+        with self.assertRaisesRegex(ValueError, "--affects"):
+            gre.present_study(self.ctx(), "PR03", correct="draw order is row-major, not y-sorted")
+        messages = gre.present_study(self.ctx(), "PR03", correct="draw order is row-major, not y-sorted",
+                                     affects=["engine/core/render/sort.ts", "PX03"])
+        self.assertTrue(any("revision 1" in m for m in messages))
+        snapshot = gre.snapshot(self.ctx())
+        problems = gre.presentation_problems(self.ctx(), snapshot)
+        self.assertTrue(any(p.startswith("PX03") and "study conclusion of PR03 was corrected" in p for p in problems))
+        p401 = next(i for i in snapshot["parity"]["items"] if i["id"] == "P4-01")
+        self.assertIn("PR03", gre.item_counts(self.ctx(), p401, "0.1.0", snapshot["core"], snapshot["presentation"]) or "")
+        self.px("PX03", kinds=["measurement"])
+        self.assertFalse(any(p.startswith("PX03") for p in gre.presentation_problems(self.ctx(), gre.snapshot(self.ctx()))))
+        correction = self.ctx().load("PRESENTATION.json")["study"]["PR03"]["corrections"][0]
+        self.assertEqual(correction["affects"], ["engine/core/render/sort.ts", "PX03"])
+
+    def test_placeholder_or_own_pixels_never_establish_visual_fidelity(self):
+        self.start()
+        self.logic_ready()
+        self.verify_group("presentation")
+        self.present_ready()
+        with self.assertRaisesRegex(ValueError, "asset-source"):
+            gre.present_compare(self.ctx(), "DONE", [(self.write("qa/side.png", b"side"), "comparison")])
+        gre.present_compare(self.ctx(), "DONE", [(self.write("qa/side.png", b"side"), "comparison")], asset_source="placeholder")
+        visual = gre.fidelity(gre.snapshot(self.ctx()))["visual"]
+        self.assertTrue(visual.startswith("NOT VERIFIED"))
+        inventory = self.write("research/reference-2.md", "licensed original pack received\n")
+        gre.present_reference(self.ctx(), "UNAVAILABLE", "LEGAL_ORIGINAL", ["battle"], [(inventory, "inventory")])
+        self.assertTrue(gre.fidelity(gre.snapshot(self.ctx()))["visual"].startswith("NOT VERIFIED"), "own/placeholder comparison stays unverified")
+        gre.present_compare(self.ctx(), "DONE", [(self.write("qa/side-original.png", b"side original"), "comparison")], asset_source="original")
+        fidelity = gre.fidelity(gre.snapshot(self.ctx()))
+        self.assertEqual(fidelity["visual"], "compared side by side with legal original assets")
+        self.assertIn("source-confirmed only", fidelity["mechanism"])
+        self.assertIn("changed: none; unknown: PR13", fidelity["mechanism"])
+        self.assertIn("Visual fidelity: compared side by side", gre.status_report(self.ctx()))
+
+    def test_base_output_cited_as_original_evidence_is_rejected(self):
+        self.start()
+        self.logic_ready()
+        self.verify_group("presentation")
+        self.present_ready()
+        own = "qa/present/PX03-0.png"
+        gre.present_study(self.ctx(), "PR05", evidence=own, kind="recording", observed="looks like the original")
+        self.assertTrue(any("PR05: cites a Base/test output as evidence of the original" in e for e in self.errors()))
+
+    def test_runtime_frame_needs_full_primitives_formula_and_layers(self):
+        self.start()
+        inventory = self.write("research/inventory.md", "original runs in the browser\n")
+        gre.present_reference(self.ctx(), "AVAILABLE", "NONE", ["battle"], [(inventory, "inventory")])
+        walk = self.write("research/walk.md", "source walkthrough\n")
+        gre.present_frame(self.ctx(), "battle", "source", walkthrough=walk)
+        problems = gre.frame_problems(self.ctx(), self.ctx().load("PRESENTATION.json"))
+        self.assertTrue(any("trace a real frame instead of a source walkthrough" in p for p in problems))
+        primitive = {"image": "atlas0", "src_rect": [0, 0, 32, 32], "corners": [[0, 0], [32, 0], [32, 32], [0, 32]],
+                     "blend": "normal", "render_item": "unit#3", "sort_key": 120}
+        trace = self.write("research/frame/trace.json", json.dumps({"primitives": [primitive, {"image": "atlas0", "corners": [[0, 0]]}]}))
+        formula = self.write("research/frame/formula.json", json.dumps({"checks": [
+            {"name": "tile->screen x", "expected": 412, "actual": 412, "tolerance": 0.5},
+            {"name": "tile->screen y", "expected": 233, "actual": 230, "tolerance": 0.5},
+            {"name": "shadow offset", "expected": 6, "actual": 6}]}))
+        layer = self.write("research/frame/layer-0.png", b"layer0")
+        messages = gre.present_frame(self.ctx(), "battle", "runtime", trace=trace, formula=formula, layers=[layer])
+        text = "\n".join(messages)
+        self.assertIn("1 primitives lack image/src_rect/corners/blend/render_item/sort_key", text)
+        self.assertIn("formula check 2/3 (failing: tile->screen y)", text)
+        self.assertIn("layer-by-layer rebuild", text)
+        self.write(trace, json.dumps({"primitives": [primitive]}))
+        self.write(formula, json.dumps({"checks": [{"name": "tile->screen x", "expected": 412, "actual": 412.2, "tolerance": 0.5}]}))
+        layer2 = self.write("research/frame/layer-1.png", b"layer1")
+        gre.present_frame(self.ctx(), "battle", "runtime", trace=trace, formula=formula, layers=[layer, layer2])
+        self.assertEqual(gre.frame_problems(self.ctx(), self.ctx().load("PRESENTATION.json")), [])
+        self.write(formula, json.dumps({"checks": [{"name": "edited later", "expected": 1, "actual": 9}]}))
+        self.assertTrue(any("formula_check file missing or changed" in p for p in gre.frame_problems(self.ctx(), self.ctx().load("PRESENTATION.json"))))
+
+    def test_reference_inventory_comes_first(self):
+        self.start()
+        problems = gre.presentation_problems(self.ctx(), gre.snapshot(self.ctx()))
+        self.assertTrue(any("record what reference material exists" in p for p in problems))
+        gre.present_reference(self.ctx(), "UNAVAILABLE", "PLACEHOLDER_ONLY", [], [])
+        problems = gre.presentation_problems(self.ctx(), gre.snapshot(self.ctx()))
+        self.assertTrue(any("list the scene types" in p for p in problems))
+        gre.present_reference(self.ctx(), "UNAVAILABLE", "PLACEHOLDER_ONLY", ["battle", "map"], [])
+        problems = gre.presentation_problems(self.ctx(), gre.snapshot(self.ctx()))
+        self.assertTrue(any("no frame study for scene type battle" in p for p in problems))
+        self.assertTrue(any("no frame study for scene type map" in p for p in problems))
+
+
+class CreatorGateTest(Fixture):
+    """Decoupling, creator kit, clean first-use, independent reuse, Git baseline, stop and export."""
+
+    def test_core_must_not_name_or_load_example_content(self):
+        self.start()
+        self.write("content/starter/pack.json", json.dumps({"id": "frost-meadow", "name": "Frost Meadow Pack"}))
+        self.write("content/starter/sprites/snow_golem.png", b"img")
+        problems = gre.decoupling_problems(self.ctx(), gre.snapshot(self.ctx()))
+        self.assertTrue(any("declare starter_paths" in p for p in problems))
+        gre.set_paths(self.ctx(), None, ["content/starter"], None)
+        self.assertEqual(gre.decoupling_problems(self.ctx(), gre.snapshot(self.ctx())), [])
+        for code, needle in (("if (pack.id === 'frost-meadow') boost();\n", "frost-meadow"),
+                             ("const boss = 'snow_golem';\n", "snow_golem"),
+                             ("load('content/starter/pack.json');\n", "starter path content/starter")):
+            self.write("engine/core/hack.ts", code)
+            problems = gre.decoupling_problems(self.ctx(), gre.snapshot(self.ctx()))
+            self.assertTrue(any("coupled to example content" in p and needle in p for p in problems), code)
+        state = self.ctx().load("RE_STATE.json")
+        state["decoupling_allow"] = [{"path": "engine/core/hack.ts", "term": "content/starter", "reason": "dev-only default pack loader"}]
+        self.ctx().save("RE_STATE.json", state)
+        self.assertEqual(gre.decoupling_problems(self.ctx(), gre.snapshot(self.ctx())), [])
+        gre.set_paths(self.ctx(), None, ["engine/core/examples"], None)
+        self.assertTrue(any("lives inside the engine core" in p for p in gre.decoupling_problems(self.ctx(), gre.snapshot(self.ctx()))))
+
+    def test_creator_kit_must_be_complete_and_exercised(self):
+        self.start()
+        problems = gre.kit_problems(self.ctx(), gre.snapshot(self.ctx()))
+        self.assertTrue(any("missing scene_geometry_contract" in p for p in problems))
+        gre.kit_set(self.ctx(), "asset_validator", [], na_reason="we trust artists")
+        self.assertTrue(any("asset_validator cannot be NOT_APPLICABLE" in p for p in gre.kit_problems(self.ctx(), gre.snapshot(self.ctx()))))
+        gre.kit_set(self.ctx(), "asset_validator", ["tools/missing.py"])
+        self.assertTrue(any("tools/missing.py does not exist" in p for p in gre.kit_problems(self.ctx(), gre.snapshot(self.ctx()))))
+        self.creator_gates(run=False)
+        self.assertEqual(gre.kit_problems(self.ctx(), gre.snapshot(self.ctx())), [])
+        self.write("tools/other_validator.py", "print('ok')\n")
+        gre.kit_set(self.ctx(), "asset_validator", ["tools/other_validator.py"])
+        self.assertTrue(any("not exercised by the first-use validate_assets step" in p for p in gre.kit_problems(self.ctx(), gre.snapshot(self.ctx()))))
+
+    def test_clean_first_use_passes_and_catches_failures(self):
+        self.start()
+        lines = self.creator_gates()
+        self.assertIn("PASSED", lines[0], "\n".join(lines))
+        self.assertEqual(gre.first_use_problems(self.ctx(), gre.snapshot(self.ctx())), [])
+        run = self.ctx().load("FIRST_USE.json")["runs"][-1]
+        self.assertEqual([r["kind"] for r in run["steps"]], list(gre.FIRST_USE_KINDS))
+        self.assertTrue(all((self.root / r["log"]["path"]).is_file() for r in run["steps"]))
+        self.assertFalse((self.root / "content/packs").exists(), "first-use ran in a clean checkout, not in the workspace")
+        # A command that the Quick Start does not mention is a spec error.
+        self.write("docs/START_HERE.md", "# Quick start\nrun the tools\n")
+        self.assertTrue(any("does not appear in docs/START_HERE.md" in p for p in gre.first_use_problems(self.ctx(), gre.snapshot(self.ctx()))))
+        self.git("checkout", "--", "docs/START_HERE.md")
+        # The content-pack generator breaks: the run fails at that step and stays failed.
+        self.write("tools/new_pack.py", "import sys\nsys.exit(3)\n")
+        self.commit("broken generator")
+        lines = gre.first_use_run(self.ctx())
+        self.assertIn("FAILED", lines[0])
+        self.assertTrue(any("create-pack" in l and "FAIL" in l for l in lines))
+        self.assertTrue(any("failed at create-pack" in p for p in gre.first_use_problems(self.ctx(), gre.snapshot(self.ctx()))))
+        # A validator that never fails cannot pass the missing-resource step.
+        self.write("tools/new_pack.py", self.TOOLS["tools/new_pack.py"])
+        self.write("tools/validate_assets.py", "print('always fine')\n")
+        self.commit("lenient validator")
+        lines = gre.first_use_run(self.ctx())
+        self.assertTrue(any("missing-resource-blocks" in l and "FAIL" in l for l in lines), "\n".join(lines))
+        # A pass goes stale when HEAD moves.
+        self.write("tools/validate_assets.py", self.TOOLS["tools/validate_assets.py"])
+        self.commit("fixed validator")
+        self.assertIn("PASSED", gre.first_use_run(self.ctx())[0])
+        self.write("docs/extra.md", "more docs\n")
+        self.commit("docs only")
+        self.assertTrue(any("but HEAD is" in p for p in gre.first_use_problems(self.ctx(), gre.snapshot(self.ctx()))))
+
+    def test_candidate_needs_creator_gates_and_ready_needs_independent_reuse(self):
+        self.start()
+        self.logic_ready()
+        self.verify_group("presentation")
+        self.verify_group("creator")
+        self.present_ready()
+        self.probe("probe-a", "冰原像素风")
+        self.probe("probe-b", "沙漠水彩风")
+        problems = gre.level_problems(self.ctx(), "CREATOR_CANDIDATE", gre.snapshot(self.ctx()))
+        for needle in ("Decoupling:", "Creator kit:", "Clean first-use:"):
+            self.assertTrue(any(p.startswith(needle) for p in problems), needle)
+        self.creator_gates()
+        self.assertEqual(gre.derive_level(self.ctx()), "CREATOR_CANDIDATE")
+        self.assertTrue(any("no independent reuse trial yet" in p for p in gre.level_problems(self.ctx(), "CREATOR_READY", gre.snapshot(self.ctx()))))
+        gre.assign(self.ctx(), "agent-builder", "E0-E7")
+        self.independent_trial(agent="agent-builder")
+        self.assertTrue(any("not independent of the Base development" in p
+                            for p in gre.level_problems(self.ctx(), "CREATOR_READY", gre.snapshot(self.ctx()))))
+        self.independent_trial(agent="agent-same-context", independence="separate_context_same_environment")
+        self.assertEqual(gre.derive_level(self.ctx()), "CREATOR_CANDIDATE")
+        lines = self.independent_trial(agent="agent-core-hacker", core_edit=True)
+        self.assertTrue(any("core files changed: 1" in l for l in lines))
+        self.write("engine/core/sim.ts", "export const step = 1;\n")
+        problems = gre.level_problems(self.ctx(), "CREATOR_READY", gre.snapshot(self.ctx()))
+        self.assertEqual([p for p in problems if not p.startswith("Independent reuse:")], [], "only the trial itself is at fault")
+        self.assertTrue(any("needed 1 engine-core changes" in p for p in problems), problems)
+        self.independent_trial(agent="agent-independent", result="BLOCKED")
+        self.assertEqual(gre.derive_level(self.ctx()), "CREATOR_CANDIDATE", "a blocked trial keeps the Base at CREATOR_CANDIDATE")
+        self.independent_trial(agent="agent-independent")
+        self.assertEqual(gre.derive_level(self.ctx()), "CREATOR_READY")
+        trial = self.ctx().load("REUSE_TRIAL.json")["trials"][-1]
+        self.assertEqual((trial["assets"], trial["steps"], trial["first_success_minutes"], trial["core_files_changed"]), (6, 9, 35.0, []))
+        self.assertEqual(trial["unverified"], ["audio mix on mobile"])
+
+    def test_uncommitted_core_changes_block_creator_levels(self):
+        self.start()
+        self.make_creator_candidate()
+        self.assertEqual(gre.derive_level(self.ctx()), "CREATOR_CANDIDATE")
+        self.write("content/starter/pack.json", json.dumps({"id": "frost-meadow", "name": "Frost Meadow Pack", "background": "bg.png",
+                                                             "hero": "hero.png", "note": "uncommitted"}))
+        problems = gre.level_problems(self.ctx(), "CREATOR_CANDIDATE", gre.snapshot(self.ctx()))
+        self.assertTrue(any("Git baseline: uncommitted changes under core/starter paths" in p for p in problems))
+
+    def test_stop_export_freeze_and_device_paths(self):
+        self.start()
+        with self.assertRaisesRegex(ValueError, "Target CREATOR_READY not reached"):
+            gre.stop(self.ctx(), "TARGET_REACHED", "done")
+        with self.assertRaisesRegex(ValueError, "truthful --reason"):
+            gre.stop(self.ctx(), "EXTERNAL_BLOCKED", "")
+        gre.stop(self.ctx(), "EXTERNAL_BLOCKED", "original build server offline; tried mirrors A and B; unblock: user uploads the build")
+        with self.assertRaisesRegex(ValueError, "only a CREATOR_CANDIDATE or CREATOR_READY version can be frozen"):
+            gre.base_freeze(self.ctx())
+        first = gre.export_handoff(self.ctx())
+        second = gre.export_handoff(self.ctx())
+        self.assertIn("below CREATOR_CANDIDATE", first[1])
+        exports = sorted((self.ctx().base_dir / "handoff/0.1.0").glob("*-CREATOR_HANDOFF.json"))
+        self.assertEqual(len(exports), 2, "exports are never overwritten")
+        contract = json.loads(exports[-1].read_text(encoding="utf-8"))
+        self.assertEqual((contract["schema_version"], contract["base_id"], contract["base_version"], contract["level"]),
+                         ("creator-handoff-1", "core", "0.1.0", "NONE"))
+        self.assertEqual(contract["core_fingerprint"], gre.core_fingerprint(self.root, ["engine/core"]))
+        self.assertIn("residual rights risk is never zero", contract["rights"]["note"])
+        self.assertEqual(contract["independent_reuse"]["status"], "NOT_RUN")
+        self.assertTrue(contract["open_gaps"])
+        gre.base_bump(self.ctx(), "0.2.0", "new renderer; breaking for content packs")
+        self.assertEqual(self.ctx().current_version(), "0.2.0")
+        survey = self.ctx().path("TECH_SURVEY.md")
+        survey.write_text(survey.read_text(encoding="utf-8") + "\nbuild at C:\\Users\\someone\\proj\n", encoding="utf-8")
+        self.assertTrue(any("absolute" in e.lower() or "device" in e.lower() for e in self.errors()))
 
 
 if __name__ == "__main__":

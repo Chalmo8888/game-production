@@ -1,6 +1,13 @@
 {
   "schema_version": "gre-1.0",
-  "note": "Presentation Reconstruction：研究原作如何把资源、坐标、动画、渲染、UI 与玩法状态组合成最终画面（study），并在 Base 中用原创测试资产搭建代表性场景实际验证（experiment）。门禁由工具根据记录推导，是 PRESENTATION_READY 的必要条件。几张截图最多支持 INFERRED，不能当作引擎架构的事实。",
+  "note": "Presentation Reconstruction（Original Pipeline First）：先确认手里有什么合法参照（reference），再研究原作怎样把资源、坐标、动画、渲染、UI 与玩法状态组合成画面（study PR01–PR13，每项给出 A/B/C/D 判定与 Base 方法关系），对每类场景做逐图元帧追踪与公式核对（frames），最后在 Base 中用原创资产实测（experiment PX01–PX09）。机制保真与视觉保真分开报告；几张截图最多支持 INFERRED；Base 自己的输出不能当作原版证据。",
+  "reference": {
+    "original_runtime": "UNKNOWN",
+    "original_assets": "UNKNOWN",
+    "scene_types": [],
+    "notes": "",
+    "evidence": []
+  },
   "study": {
     "PR01": {
       "name": "逻辑坐标到画面坐标的转换（世界单位、相机、视口、像素对齐）",
@@ -18,7 +25,19 @@
         "P1-02"
       ],
       "na_basis": "",
-      "history": []
+      "history": [],
+      "decision": "",
+      "base_relation": "",
+      "original_method": "",
+      "base_method": "",
+      "deviation": {
+        "difference": "",
+        "reason": "",
+        "impact": ""
+      },
+      "reuse_modules": [],
+      "revision": 0,
+      "corrections": []
     },
     "PR02": {
       "name": "对象位置、缩放、旋转、Pivot、Anchor 与变换层级",
@@ -36,7 +55,19 @@
         "P2-02"
       ],
       "na_basis": "",
-      "history": []
+      "history": [],
+      "decision": "",
+      "base_relation": "",
+      "original_method": "",
+      "base_method": "",
+      "deviation": {
+        "difference": "",
+        "reason": "",
+        "impact": ""
+      },
+      "reuse_modules": [],
+      "revision": 0,
+      "corrections": []
     },
     "PR03": {
       "name": "背景、地形、角色、特效和 UI 的绘制顺序与排序键",
@@ -54,7 +85,19 @@
         "P4-02"
       ],
       "na_basis": "",
-      "history": []
+      "history": [],
+      "decision": "",
+      "base_relation": "",
+      "original_method": "",
+      "base_method": "",
+      "deviation": {
+        "difference": "",
+        "reason": "",
+        "impact": ""
+      },
+      "reuse_modules": [],
+      "revision": 0,
+      "corrections": []
     },
     "PR04": {
       "name": "Sprite、Atlas、分部件动画与时间轴的实际绑定",
@@ -74,7 +117,19 @@
         "P2-03"
       ],
       "na_basis": "",
-      "history": []
+      "history": [],
+      "decision": "",
+      "base_relation": "",
+      "original_method": "",
+      "base_method": "",
+      "deviation": {
+        "difference": "",
+        "reason": "",
+        "impact": ""
+      },
+      "reuse_modules": [],
+      "revision": 0,
+      "corrections": []
     },
     "PR05": {
       "name": "动画状态、帧事件及其与玩法逻辑的同步",
@@ -92,7 +147,19 @@
         "P3-02"
       ],
       "na_basis": "",
-      "history": []
+      "history": [],
+      "decision": "",
+      "base_relation": "",
+      "original_method": "",
+      "base_method": "",
+      "deviation": {
+        "difference": "",
+        "reason": "",
+        "impact": ""
+      },
+      "reuse_modules": [],
+      "revision": 0,
+      "corrections": []
     },
     "PR06": {
       "name": "角色脚点、接触阴影、武器挂点和攻击发射点",
@@ -110,7 +177,19 @@
         "P5-03"
       ],
       "na_basis": "",
-      "history": []
+      "history": [],
+      "decision": "",
+      "base_relation": "",
+      "original_method": "",
+      "base_method": "",
+      "deviation": {
+        "difference": "",
+        "reason": "",
+        "impact": ""
+      },
+      "reuse_modules": [],
+      "revision": 0,
+      "corrections": []
     },
     "PR07": {
       "name": "地图与场景资源的装配和复用方式",
@@ -128,7 +207,19 @@
         "L5-01"
       ],
       "na_basis": "",
-      "history": []
+      "history": [],
+      "decision": "",
+      "base_relation": "",
+      "original_method": "",
+      "base_method": "",
+      "deviation": {
+        "difference": "",
+        "reason": "",
+        "impact": ""
+      },
+      "reuse_modules": [],
+      "revision": 0,
+      "corrections": []
     },
     "PR08": {
       "name": "粒子、透明混合、受击和环境特效",
@@ -147,7 +238,19 @@
         "P4-03"
       ],
       "na_basis": "",
-      "history": []
+      "history": [],
+      "decision": "",
+      "base_relation": "",
+      "original_method": "",
+      "base_method": "",
+      "deviation": {
+        "difference": "",
+        "reason": "",
+        "impact": ""
+      },
+      "reuse_modules": [],
+      "revision": 0,
+      "corrections": []
     },
     "PR09": {
       "name": "HUD、菜单、交互区域和分辨率布局",
@@ -164,7 +267,19 @@
         "L6-02"
       ],
       "na_basis": "",
-      "history": []
+      "history": [],
+      "decision": "",
+      "base_relation": "",
+      "original_method": "",
+      "base_method": "",
+      "deviation": {
+        "difference": "",
+        "reason": "",
+        "impact": ""
+      },
+      "reuse_modules": [],
+      "revision": 0,
+      "corrections": []
     },
     "PR10": {
       "name": "资源加载、缓存、批处理和打包",
@@ -182,9 +297,112 @@
         "P8-02"
       ],
       "na_basis": "",
-      "history": []
+      "history": [],
+      "decision": "",
+      "base_relation": "",
+      "original_method": "",
+      "base_method": "",
+      "deviation": {
+        "difference": "",
+        "reason": "",
+        "impact": ""
+      },
+      "reuse_modules": [],
+      "revision": 0,
+      "corrections": []
+    },
+    "PR11": {
+      "name": "场景背景的绘制方式（预绘制大图、拼贴、程序生成、分层视差；源窗口、缩放与宽屏填充）",
+      "evidence_level": "UNKNOWN",
+      "refs": [],
+      "dynamic_gap": "",
+      "inputs": "",
+      "outputs": "",
+      "data_structures": "",
+      "constraints": "",
+      "unknowns": "",
+      "reuse": "",
+      "items": [
+        "P4-01",
+        "P4-03"
+      ],
+      "na_basis": "",
+      "history": [],
+      "decision": "",
+      "base_relation": "",
+      "original_method": "",
+      "base_method": "",
+      "deviation": {
+        "difference": "",
+        "reason": "",
+        "impact": ""
+      },
+      "reuse_modules": [],
+      "revision": 0,
+      "corrections": []
+    },
+    "PR12": {
+      "name": "棋盘、地形或地图的几何结构（格宽、格高、行高、偏移、斜面、高地）与背景的对齐方式",
+      "evidence_level": "UNKNOWN",
+      "refs": [],
+      "dynamic_gap": "",
+      "inputs": "",
+      "outputs": "",
+      "data_structures": "",
+      "constraints": "",
+      "unknowns": "",
+      "reuse": "",
+      "items": [
+        "L5-01",
+        "P4-01"
+      ],
+      "na_basis": "",
+      "history": [],
+      "decision": "",
+      "base_relation": "",
+      "original_method": "",
+      "base_method": "",
+      "deviation": {
+        "difference": "",
+        "reason": "",
+        "impact": ""
+      },
+      "reuse_modules": [],
+      "revision": 0,
+      "corrections": []
+    },
+    "PR13": {
+      "name": "资源加载、构建与制作工具，以及场景和角色资源的生产约束",
+      "evidence_level": "UNKNOWN",
+      "refs": [],
+      "dynamic_gap": "",
+      "inputs": "",
+      "outputs": "",
+      "data_structures": "",
+      "constraints": "",
+      "unknowns": "",
+      "reuse": "",
+      "items": [
+        "P6-01",
+        "P6-03"
+      ],
+      "na_basis": "",
+      "history": [],
+      "decision": "",
+      "base_relation": "",
+      "original_method": "",
+      "base_method": "",
+      "deviation": {
+        "difference": "",
+        "reason": "",
+        "impact": ""
+      },
+      "reuse_modules": [],
+      "revision": 0,
+      "corrections": []
     }
   },
+  "frames": [],
   "experiment": {
     "scene_title": "",
     "checks": {
@@ -267,12 +485,23 @@
         "base_version": "",
         "note": "",
         "history": []
+      },
+      "PX09": {
+        "name": "场景与逻辑几何契约（背景窗口、棋盘/地图几何、偏移、宽屏规则）实测一致",
+        "status": "UNVERIFIED",
+        "evidence": [],
+        "bound_files": [],
+        "core_fingerprint": "",
+        "base_version": "",
+        "note": "",
+        "history": []
       }
     }
   },
   "original_comparison": {
     "status": "PENDING",
     "evidence": [],
-    "reason": ""
+    "reason": "",
+    "asset_source": ""
   }
 }

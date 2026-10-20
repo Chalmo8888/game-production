@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Game Reverse Engineering Skill tool. Python 3.9+, standard library only.
 
-Keeps the reverse-engineering and Base-building records of a Game Production v4
-compatible workspace: capability parity matrix (with game-specific discovery and
-PARITY / REPLACEMENT / EXTENSION classes), reuse assessment, Creator production
-probes, delivery levels (LOGIC_READY / PRESENTATION_READY / CREATOR_READY),
-value-ranked next tasks, timeouts, checkpoints and an append-only history.
+Keeps the reverse-engineering and Base-building records of a shared production
+workspace (schema 3.0): capability parity matrix (with game-specific discovery and
+PARITY / REPLACEMENT / EXTENSION classes), reuse assessment, presentation research
+and experiments, Creator probes, creator gates (decoupling, creator kit, clean
+first-use, independent reuse), delivery levels (LOGIC_READY / PRESENTATION_READY /
+CREATOR_CANDIDATE / CREATOR_READY), value-ranked next tasks, timeouts, checkpoints,
+an append-only history and the creator handoff export read by game-creation-polish.
 Never runs games, decompilers, builds or untrusted scripts; never commits, pushes
 or deploys. Validation checks records, evidence bytes, code fingerprints and
 claims; it does not judge gameplay quality, art quality or legal clearance.
@@ -25,21 +27,22 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 KIT_ROOT = Path(__file__).resolve().parent.parent
 SKILL_NAME = "game-reverse-engineering"
-SKILL_VERSION = "1.2.0"
+SKILL_VERSION = "2.0.0"
 GRE_SCHEMA = "gre-1.0"
-V4_SCHEMA = "3.0"
-V4_KIT_VERSION = "4.1.0"
+WORKSPACE_SCHEMA = "3.0"
 SKILL_PATH = ".agents/skills/" + SKILL_NAME
 WORKSPACE_FILE = ".production/WORKSPACE.json"
 RE_DIRNAME = "re"
 AGENTS_MARKERS = ("<!-- GAME_REVERSE_ENGINEERING_V1_BEGIN -->", "<!-- GAME_REVERSE_ENGINEERING_V1_END -->")
 IGNORE_MARKER = "# GAME_REVERSE_ENGINEERING_LOCAL"
 IGNORE_BLOCK = IGNORE_MARKER + "\n.production/local/\nresearch-private/\n"
+ABS_PATH_RE = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]|\\\\[A-Za-z0-9_.$-]+\\|(?<![\w.])/(?:Users|home)/[^\s\"'`)]+")
 UNFILLED_MARKER = "TEMPLATE_UNFILLED"
 RESEARCH_PRIVATE = "research-private"
 
-LEVELS = ["NONE", "LOGIC_READY", "PRESENTATION_READY", "CREATOR_READY"]
+LEVELS = ["NONE", "LOGIC_READY", "PRESENTATION_READY", "CREATOR_CANDIDATE", "CREATOR_READY"]
 GROUP_LEVEL = {"logic": "LOGIC_READY", "presentation": "PRESENTATION_READY", "creator": "CREATOR_READY"}
+GROUP_MIN_LEVEL = {"logic": "LOGIC_READY", "presentation": "PRESENTATION_READY", "creator": "CREATOR_CANDIDATE"}
 DOMAIN_GROUP = {d: "logic" for d in ("L1", "L2", "L3", "L4", "L5", "L6")}
 DOMAIN_GROUP.update({d: "presentation" for d in ("P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8")})
 DOMAIN_GROUP["C1"] = "creator"
@@ -252,7 +255,7 @@ def same_text_bytes(a: bytes, b: bytes) -> bool:
 
 def probe_environment(root: Path, label: Optional[str] = None) -> Dict[str, Any]:
     path = safe_path(root, ".production/local/ENVIRONMENT.json")
-    env = load_json(path) if path.is_file() else load_json(template("v4/ENVIRONMENT.local.json"))
+    env = load_json(path) if path.is_file() else load_json(template("workspace/ENVIRONMENT.local.json"))
     env["os"] = "%s %s (%s)" % (platform.system(), platform.release(), platform.machine())
     env["probed_utc"] = now_utc()
     env["project_root"] = str(root)
@@ -352,14 +355,14 @@ def check_gate(gate: Dict[str, Any], label: str, root: Path) -> Tuple[List[str],
 # ---------------------------------------------------------------- context
 
 class Context:
-    """One Base's GRE records inside a v4-compatible workspace."""
+    """One Base's GRE records inside a shared production workspace."""
 
     def __init__(self, root: Path, base_id: Optional[str] = None):
         self.root = root.resolve()
         ws_path = self.root / WORKSPACE_FILE
         if not ws_path.is_file():
             if (self.root / ".production/PROJECT.json").is_file():
-                raise ValueError("v3 single-game records found. Upgrade with game-production `project.py migrate` first, then run `gre.py init`.")
+                raise ValueError("v3 single-game records found (retired format, not supported); convert them with the last single-skill release (commit 9fc83fe) or start a new workspace.")
             raise ValueError("No workspace here. Run `gre.py init --project <root> ...` first.")
         self.workspace = load_json(ws_path)
         bases = [b for b in self.workspace.get("bases", []) if isinstance(b, dict)]
@@ -444,14 +447,15 @@ def guards(state: Dict[str, Any]) -> Dict[str, int]:
 
 def init(root: Path, base_id: str = "core", version: str = "0.1.0", code_path: str = "",
          core_paths: Optional[List[str]] = None, references: Optional[List[str]] = None,
-         name: str = "", target: str = "CREATOR_READY", basis: str = "", agent: str = "") -> List[str]:
+         name: str = "", target: str = "CREATOR_READY", basis: str = "", agent: str = "",
+         starter_paths: Optional[List[str]] = None) -> List[str]:
     root = root.resolve()
     if root == KIT_ROOT or KIT_ROOT in root.parents:
         raise ValueError("Select the workspace root, not the Skill folder.")
     if root.exists() and not root.is_dir():
         raise ValueError("Project is not a directory: " + str(root))
     if (root / ".production/PROJECT.json").is_file() and not (root / WORKSPACE_FILE).is_file():
-        raise ValueError("v3 single-game records found. Upgrade with game-production `project.py migrate` first (references/MIGRATION_V3.md in the game-production Skill).")
+        raise ValueError("v3 single-game records found (retired format, not supported); convert them with the last single-skill release (commit 9fc83fe) or start a new workspace.")
     if target not in LEVELS[1:]:
         raise ValueError("target must be one of " + ", ".join(LEVELS[1:]))
     check_slug(base_id, "Base")
@@ -472,12 +476,12 @@ def init(root: Path, base_id: str = "core", version: str = "0.1.0", code_path: s
     ws_path = root / WORKSPACE_FILE
     if ws_path.is_file():
         workspace = load_json(ws_path)
-        if workspace.get("schema_version") != V4_SCHEMA:
-            raise ValueError("WORKSPACE.json schema %s is not supported (expected %s)" % (workspace.get("schema_version"), V4_SCHEMA))
-        messages.append("Using existing v4 workspace; its records are kept.")
+        if workspace.get("schema_version") != WORKSPACE_SCHEMA:
+            raise ValueError("WORKSPACE.json schema %s is not supported (expected %s)" % (workspace.get("schema_version"), WORKSPACE_SCHEMA))
+        messages.append("Using existing workspace (schema 3.0); its records are kept.")
         ws_changed = False
     else:
-        workspace = load_json(template("v4/WORKSPACE.json"))
+        workspace = load_json(template("workspace/WORKSPACE.json"))
         existing_code = bool(code_path) and code_path != "." and safe_path(root, code_path).is_dir() and any(safe_path(root, code_path).iterdir())
         existing_code = existing_code or (code_path == "." and any(p.name not in (".agents", ".production") for p in root.iterdir()))
         workspace.update(workspace_id="ws-" + uuid.uuid4().hex[:12], name=name or root.name)
@@ -485,15 +489,15 @@ def init(root: Path, base_id: str = "core", version: str = "0.1.0", code_path: s
         workspace["run"]["scope"] = {"target": "base", "required_readiness": "RELEASE_CANDIDATE", "game_quota": 0, "games": [],
                                      "basis": basis or "Reverse engineering and Base building only (game-reverse-engineering); no games."}
         workspace["run"]["allowed_stages"] = ["R0", "R1", "R2"]
-        for relative, source in ((".production/BACKLOG.md", "v4/BACKLOG.md"), (".production/HANDOFF.md", "v4/HANDOFF.md"),
-                                 (".production/RIGHTS_LEDGER.md", "v4/RIGHTS_LEDGER.md")):
+        for relative, source in ((".production/BACKLOG.md", "workspace/BACKLOG.md"), (".production/HANDOFF.md", "workspace/HANDOFF.md"),
+                                 (".production/RIGHTS_LEDGER.md", "workspace/RIGHTS_LEDGER.md")):
             create_new(safe_path(root, relative), template(source).read_bytes())
         ws_changed = True
-        messages.append("Created v4-compatible workspace (scope: base only, no games).")
+        messages.append("Created workspace (scope: base only, no games).")
     if references and not workspace.get("research"):
         workspace["research"] = [{"id": "research-01", "sources": list(references), "records": ".production/research/research-01"}]
         workspace["focus"]["research"] = "research-01"
-        create_new(safe_path(root, ".production/research/research-01/MECHANICS_MATRIX.md"), template("v4/MECHANICS_MATRIX.md").read_bytes())
+        create_new(safe_path(root, ".production/research/research-01/MECHANICS_MATRIX.md"), template("workspace/MECHANICS_MATRIX.md").read_bytes())
         ws_changed = True
 
     entry = next((b for b in workspace.get("bases", []) if isinstance(b, dict) and b.get("id") == base_id), None)
@@ -503,15 +507,14 @@ def init(root: Path, base_id: str = "core", version: str = "0.1.0", code_path: s
         code_root = root if code_path == "." else safe_path(root, code_path)
         records = workspace.get("layout", {}).get("base_records_dir", ".production/bases") + "/" + base_id
         folder = safe_path(root, records)
-        base = load_json(template("v4/base/BASE.json"))
+        base = load_json(template("workspace/base/BASE.json"))
         base.update(base_id=base_id, name=name or base_id, code_path=code_path, current_version=version,
                     research_ids=[r["id"] for r in workspace.get("research", []) if isinstance(r, dict)])
         base["versions"] = [{"version": version, "readiness": "NONE", "frozen": False,
                              "summary": "registered by game-reverse-engineering", "created_utc": now_utc()}]
         create_new(folder / "BASE.json", json_bytes(base))
-        create_new(folder / "GATES.json", template("v4/base/GATES.json").read_bytes())
-        create_new(folder / "CAPABILITIES.md", template("v4/base/CAPABILITIES.md").read_bytes())
-        create_new(folder / "RIGHTS_LEDGER.md", template("v4/RIGHTS_LEDGER.md").read_bytes())
+        create_new(folder / "CAPABILITIES.md", template("workspace/base/CAPABILITIES.md").read_bytes())
+        create_new(folder / "RIGHTS_LEDGER.md", template("workspace/RIGHTS_LEDGER.md").read_bytes())
         workspace.setdefault("bases", []).append({"id": base_id, "records": records})
         workspace["focus"]["base"] = workspace["focus"].get("base") or base_id
         ws_changed = True
@@ -521,7 +524,7 @@ def init(root: Path, base_id: str = "core", version: str = "0.1.0", code_path: s
     else:
         folder = safe_path(root, entry["records"])
         base = load_json(folder / "BASE.json")
-        messages.append("Adopting existing Base %s@%s; v4 Base records are not modified." % (base_id, base.get("current_version")))
+        messages.append("Adopting existing Base %s@%s; existing Base records are not modified." % (base_id, base.get("current_version")))
         default_core = [base.get("code_path")] if base.get("code_path") not in ("", ".") else []
     if ws_changed:
         save_json(ws_path, workspace)
@@ -535,11 +538,14 @@ def init(root: Path, base_id: str = "core", version: str = "0.1.0", code_path: s
         for path in cores:
             safe_path(root, path)
         state = load_json(template("RE_STATE.json"))
-        state.update(base_id=base_id, target_level=target, core_paths=cores)
+        for path in starter_paths or []:
+            safe_path(root, path)
+        state.update(base_id=base_id, target_level=target, core_paths=cores, starter_paths=list(starter_paths or []))
         if agent:
             state["assignment"] = {"agent_label": agent, "scope": "E0-E7", "since_utc": now_utc()}
         for name_, source in (("PARITY.json", "PARITY.json"), ("REUSE.json", "REUSE.json"), ("PROBES.json", "PROBES.json"),
-                              ("PRESENTATION.json", "PRESENTATION.json"),
+                              ("PRESENTATION.json", "PRESENTATION.json"), ("CREATOR_KIT.json", "CREATOR_KIT.json"),
+                              ("FIRST_USE.json", "FIRST_USE.json"), ("REUSE_TRIAL.json", "REUSE_TRIAL.json"),
                               ("GATES.json", "GATES.json"), ("TECH_SURVEY.md", "TECH_SURVEY.md"),
                               ("DYNAMIC_STUDY.md", "DYNAMIC_STUDY.md"), ("BASE_HANDOFF.md", "BASE_HANDOFF.md")):
             create_new(re_dir / name_, template(source).read_bytes())
@@ -587,6 +593,18 @@ def upgrade(ctx: Context) -> List[str]:
         added.append("PARITY.discovery")
     if create_new(ctx.path("PRESENTATION.json"), template("PRESENTATION.json").read_bytes()):
         added.append("PRESENTATION.json")
+    else:
+        presentation = ctx.load("PRESENTATION.json")
+        merged = load_presentation(ctx)
+        new_keys = [t for t in merged["study"] if t not in presentation.get("study", {})] + \
+                   [c for c in merged["experiment"]["checks"] if c not in presentation.get("experiment", {}).get("checks", {})] + \
+                   [k for k in ("reference", "frames") if k not in presentation]
+        if new_keys:
+            ctx.save("PRESENTATION.json", merged)
+            added.append("PRESENTATION " + ",".join(new_keys))
+    for name in ("CREATOR_KIT.json", "FIRST_USE.json", "REUSE_TRIAL.json"):
+        if create_new(ctx.path(name), template(name).read_bytes()):
+            added.append(name)
     probes = ctx.load("PROBES.json")
     if "max_visual_overlap" not in probes:
         probes["max_visual_overlap"] = load_json(template("PROBES.json"))["max_visual_overlap"]
@@ -594,7 +612,11 @@ def upgrade(ctx: Context) -> List[str]:
         added.append("PROBES.max_visual_overlap")
     state = ctx.load("RE_STATE.json")
     missing = {k: v for k, v in DEFAULT_GUARDS.items() if k not in state.get("guards", {})}
-    if missing or state.get("upgraded_to") != SKILL_VERSION:
+    fields = {k: v for k, v in (("starter_paths", []), ("content_terms", []), ("decoupling_allow", []),
+                                ("budget", {"paid_tools_allowed": False, "limits": []})) if k not in state}
+    if missing or fields or state.get("upgraded_to") != SKILL_VERSION:
+        state.update(fields)
+        added += ["RE_STATE." + k for k in fields]
         state.setdefault("guards", {}).update(missing)
         state["upgraded_to"] = SKILL_VERSION
         ctx.save("RE_STATE.json", state)
@@ -889,7 +911,8 @@ def parity_errors(ctx: Context, parity: Dict[str, Any], modules) -> Tuple[List[s
     return errors + e, warnings + w
 
 
-def item_counts(ctx: Context, item: Dict[str, Any], current: str, core: List[str]) -> Optional[str]:
+def item_counts(ctx: Context, item: Dict[str, Any], current: str, core: List[str],
+                presentation: Optional[Dict[str, Any]] = None) -> Optional[str]:
     status = item.get("status")
     if status == "NOT_APPLICABLE":
         return None if text(item.get("na_basis")) else "NOT_APPLICABLE without na_basis"
@@ -900,7 +923,13 @@ def item_counts(ctx: Context, item: Dict[str, Any], current: str, core: List[str
     if text(item.get("base_version")) != current:
         return "verified against base %s, not current %s" % (item.get("base_version") or "(none)", current)
     if "verified_fingerprint" in item and item["verified_fingerprint"] != ctx.fingerprint(item_paths(item, core)):
-        return "stale: code under %s changed after verification; re-verify" % ", ".join(item_paths(item, core)) 
+        return "stale: code under %s changed after verification; re-verify" % ", ".join(item_paths(item, core))
+    if presentation is not None:
+        revisions = study_revisions(presentation)
+        recorded = item.get("study_revisions") if isinstance(item.get("study_revisions"), dict) else {}
+        corrected = [t for t in topics_for_item(presentation, item.get("id")) if revisions.get(t, 0) > int(recorded.get(t, 0))]
+        if corrected:
+            return "stale: the study conclusion of %s was corrected after verification; re-verify the implementation" % ", ".join(corrected)
     return None
 
 
@@ -1050,7 +1079,7 @@ def probe_errors(ctx: Context, probes: Dict[str, Any], data: Dict[str, Any]) -> 
 
 # ---------------------------------------------------------------- presentation reconstruction
 
-PR_TOPICS = ["PR%02d" % i for i in range(1, 11)]
+PR_TOPICS = ["PR%02d" % i for i in range(1, 14)]
 PX_CHECKS = {
     "PX01": {"runtime-capture", "recording"},
     "PX02": {"measurement"},
@@ -1060,18 +1089,33 @@ PX_CHECKS = {
     "PX06": {"measurement"},
     "PX07": {"measurement"},
     "PX08": {"measurement"},
+    "PX09": {"measurement"},
 }
+PX_TOPICS = {"PX01": ["PR07", "PR11"], "PX02": ["PR01", "PR02"], "PX03": ["PR03"], "PX04": ["PR04"], "PX05": ["PR05"],
+             "PX06": ["PR06", "PR12"], "PX07": ["PR09", "PR11"], "PX08": ["PR09"], "PX09": ["PR11", "PR12"]}
 STUDY_FIELDS = ("inputs", "outputs", "data_structures", "constraints", "unknowns", "reuse")
+METHOD_FIELDS = ("original_method", "base_method")
+DECISIONS = {"A": "original method confirmed and legally reusable as is",
+             "B": "original method confirmed; compliant equivalent rebuild of the same method",
+             "C": "deliberate extension or change of the original method (difference, reason and impact disclosed)",
+             "D": "original method not established by evidence (UNKNOWN)"}
+BASE_RELATIONS = ("same_method", "different_method", "downgrade", "missing")
+ASSET_SOURCES = ("original", "placeholder", "own_test")
+REFERENCE_RUNTIME = ("UNKNOWN", "AVAILABLE", "UNAVAILABLE")
+REFERENCE_ASSETS = ("UNKNOWN", "LEGAL_ORIGINAL", "PLACEHOLDER_ONLY", "NONE")
+PRODUCTION_TOPIC = "PR13"
+AUTHOR_DOC_KINDS = {"author-documentation"}
 CREATOR_GUIDE = ("怎样新增一套场景：", "怎样修改背景、地形、前景和 UI：", "怎样添加新角色和动画：",
                  "怎样配置不同对象的布局与层级：", "怎样配置攻击、技能及特效挂点：",
                  "怎样更换视觉风格而不修改战斗逻辑：", "已实现与仍需扩展的能力：")
 STATIC_KINDS = {"static-analysis", "source", "data", "disassembly", "asset-structure"}
-SCREEN_KINDS = {"screenshot", "runtime-capture"}
 PRESENTATION_DYNAMIC = {"trace", "measurement", "recording", "comparison"}
+TRACE_KEYS = ("image", "src_rect", "corners", "blend", "render_item", "sort_key")
 
 
-def study_errors(ctx: Context, tid: str, topic: Dict[str, Any], items: Dict[str, Any]) -> Tuple[List[str], List[str]]:
-    """A topic must say what the original actually does, with evidence; screenshots alone are at most INFERRED."""
+def study_errors(ctx: Context, tid: str, topic: Dict[str, Any], items: Dict[str, Any],
+                 modules: Optional[Dict[str, Any]] = None) -> Tuple[List[str], List[str]]:
+    """What the original actually does, with graded evidence, and how the Base relates to that method."""
     errors, warnings = [], []
     label = "PRESENTATION %s" % tid
     level = topic.get("evidence_level")
@@ -1082,16 +1126,55 @@ def study_errors(ctx: Context, tid: str, topic: Dict[str, Any], items: Dict[str,
     errors += e
     warnings += w
     kinds = {r.get("kind") for r in refs if isinstance(r, dict)}
+    if any(isinstance(r, dict) and r.get("subject") == "base" for r in refs):
+        errors.append(label + ": evidence produced by the Base or with own test art proves self-consistency only; it cannot be evidence of the original")
     if level == "VERIFIED" and not kinds & PRESENTATION_DYNAMIC:
         errors.append(label + ": VERIFIED needs dynamic evidence (trace, measurement, recording or comparison); screenshots alone support at most INFERRED")
-    if level == "STATIC_ONLY" and not kinds & STATIC_KINDS:
+    if level == "STATIC_ONLY" and not kinds & (STATIC_KINDS | AUTHOR_DOC_KINDS):
         errors.append(label + ": STATIC_ONLY needs static evidence (source, data, disassembly, asset-structure); screenshots alone support at most INFERRED")
     if level in ("STATIC_ONLY", "INFERRED", "PROXY") and not text(topic.get("dynamic_gap")):
         errors.append(label + ": %s needs dynamic_gap (what the evidence does not prove)" % level)
+    if tid == PRODUCTION_TOPIC and level in ("VERIFIED", "STATIC_ONLY") and not kinds & AUTHOR_DOC_KINDS:
+        errors.append(label + ": production tools and process are UNKNOWN unless the original authors documented them; never infer a tool from a data format")
     for iid in topic.get("items", []):
         if iid not in items:
             errors.append(label + ": linked parity item %s does not exist" % iid)
+    decision, relation = topic.get("decision", ""), topic.get("base_relation", "")
+    if decision and decision not in DECISIONS:
+        errors.append(label + ": decision must be A, B, C or D")
+    if relation and relation not in BASE_RELATIONS:
+        errors.append(label + ": base_relation must be one of " + ", ".join(BASE_RELATIONS))
+    if decision in ("A", "B") and level not in ("VERIFIED", "STATIC_ONLY"):
+        errors.append(label + ": %s needs the original method confirmed by source or runtime evidence; inferred or unknown methods are D" % decision)
+    if decision in ("A", "B") and relation and relation != "same_method":
+        errors.append(label + ": %s means the Base uses the original's method; a different method, downgrade or missing capability must be C (with difference, reason and impact) or D" % decision)
+    if decision == "A":
+        reuse = [m for m in topic.get("reuse_modules", []) if (modules or {}).get(m, {}).get("decision") in ("KEEP", "ADAPT")]
+        if not reuse:
+            errors.append(label + ": A needs the original implementation as a legally reusable KEEP/ADAPT module in REUSE.json; otherwise it is B")
+    deviation = topic.get("deviation") if isinstance(topic.get("deviation"), dict) else {}
+    if decision == "C":
+        if level == "UNKNOWN":
+            errors.append(label + ": C changes a known original method; with no evidence of the original it is D")
+        missing = [k for k in ("difference", "reason", "impact") if not text(deviation.get(k))]
+        if missing:
+            errors.append(label + ": C must disclose %s of the deviation from the original method" % ", ".join(missing))
+    if decision == "D" and level in ("VERIFIED", "STATIC_ONLY"):
+        errors.append(label + ": the original method is confirmed by evidence; choose A, B or C instead of D")
+    for index, correction in enumerate(topic.get("corrections", [])):
+        if not isinstance(correction, dict) or not text(correction.get("was")) or not text(correction.get("now")) or not correction.get("affects"):
+            errors.append(label + ": correction %d must record what was wrong, the corrected fact and the downstream implementations it affects" % index)
     return errors, warnings
+
+
+def study_revisions(presentation: Optional[Dict[str, Any]]) -> Dict[str, int]:
+    study = (presentation or {}).get("study", {})
+    return {tid: int(topic.get("revision", 0)) for tid, topic in study.items() if isinstance(topic, dict)}
+
+
+def topics_for_item(presentation: Optional[Dict[str, Any]], iid: str) -> List[str]:
+    study = (presentation or {}).get("study", {})
+    return [tid for tid, topic in study.items() if isinstance(topic, dict) and iid in topic.get("items", [])]
 
 
 def study_problems(ctx: Context, data: Dict[str, Any]) -> List[str]:
@@ -1103,9 +1186,9 @@ def study_problems(ctx: Context, data: Dict[str, Any]) -> List[str]:
     for tid in PR_TOPICS:
         topic = presentation.get("study", {}).get(tid)
         if not isinstance(topic, dict):
-            problems.append("%s is missing from the presentation study" % tid)
+            problems.append("%s is missing from the presentation study (run `gre.py upgrade`)" % tid)
             continue
-        errors, _ = study_errors(ctx, tid, topic, items)
+        errors, _ = study_errors(ctx, tid, topic, items, data["modules"])
         if errors:
             problems.append(errors[0])
             continue
@@ -1113,12 +1196,20 @@ def study_problems(ctx: Context, data: Dict[str, Any]) -> List[str]:
             if not topic.get("refs"):
                 problems.append("%s is NOT_APPLICABLE but has no evidence that the original lacks it" % tid)
             continue
-        if topic.get("evidence_level") == "UNKNOWN" or not topic.get("refs"):
+        if not topic.get("refs") or (topic.get("evidence_level") == "UNKNOWN" and topic.get("decision") != "D"):
             problems.append("%s %s: not studied (record actual source evidence)" % (tid, topic.get("name", "")))
             continue
         empty = [f for f in STUDY_FIELDS if not text(topic.get(f))]
         if empty:
             problems.append("%s: record %s (write 'none known' only when that is the finding)" % (tid, ", ".join(empty)))
+            continue
+        if topic.get("decision") not in DECISIONS or topic.get("base_relation") not in BASE_RELATIONS:
+            problems.append("%s: record the Original Pipeline First decision (A/B/C/D) and how the Base relates to the original method" % tid)
+            continue
+        needed = ["base_method"] + ([] if topic.get("decision") == "D" else ["original_method"])
+        empty = [f for f in needed if not text(topic.get(f))]
+        if empty:
+            problems.append("%s: describe %s" % (tid, " and ".join(empty)))
     return problems
 
 
@@ -1152,12 +1243,17 @@ def check_problems(ctx: Context, cid: str, check: Dict[str, Any], data: Dict[str
     changed = files_changed(ctx, check.get("bound_files", []))
     if changed:
         problems.append(label + ": stale — scene/layout/anchor files changed after this check (%s); re-run and record new evidence" % ", ".join(changed[:3]))
+    revisions = study_revisions(data.get("presentation"))
+    recorded = check.get("study_revisions", {}) if isinstance(check.get("study_revisions"), dict) else {}
+    corrected = [t for t in PX_TOPICS.get(cid, []) if revisions.get(t, 0) > int(recorded.get(t, 0))]
+    if corrected:
+        problems.append(label + ": stale — the study conclusion of %s was corrected after this check; re-verify the downstream implementation" % ", ".join(corrected))
     quarantine = quarantine_paths(data["reuse"])
     swap = check.get("swap") if isinstance(check.get("swap"), dict) else {}
     for entry in check.get("bound_files", []) + [f for k in ("before", "after", "ui_before", "ui_after") for f in swap.get(k, [])]:
         pure = PurePosixPath(str(entry.get("path", "")))
         if any(inside(pure, q) for q in quarantine):
-            problems.append(label + ": uses quarantined research material %s; experiments need original or licensed test assets" % entry.get("path"))
+            problems.append(label + ": uses quarantined research material %s; experiments need original-licensed or own test assets" % entry.get("path"))
     if cid == "PX01":
         scenes = {f.get("sha256") for f in check.get("bound_files", [])}
         if len(scenes) < 2:
@@ -1180,21 +1276,137 @@ def check_problems(ctx: Context, cid: str, check: Dict[str, Any], data: Dict[str
             problems.append(label + ": list the target resolution(s) that were measured")
         elif sum(1 for e in evidence if isinstance(e, dict) and e.get("kind") == "measurement") < len(resolutions):
             problems.append(label + ": each target resolution needs its own measurement")
+    if cid == "PX09" and not check.get("bound_files"):
+        problems.append(label + ": bind the scene/logic geometry contract (background window, board or map geometry, offsets) that was measured")
+    return problems
+
+
+def load_json_file(ctx: Context, relative: str) -> Tuple[Optional[Any], str]:
+    try:
+        path = safe_path(ctx.root, relative)
+        return json.loads(path.read_text(encoding="utf-8-sig")), ""
+    except (ValueError, OSError, json.JSONDecodeError) as exc:
+        return None, str(exc)
+
+
+def trace_problems(ctx: Context, frame: Dict[str, Any]) -> List[str]:
+    """A runtime frame trace must list real primitives and its formula check must reproduce N/N."""
+    label = "frame %s" % frame.get("scene_type")
+    problems = []
+    for key in ("trace", "formula_check"):
+        entry = frame.get(key) or {}
+        problems += files_changed(ctx, [entry]) and [label + ": %s file missing or changed" % key] or []
+    trace, error = load_json_file(ctx, (frame.get("trace") or {}).get("path", ""))
+    primitives = trace.get("primitives") if isinstance(trace, dict) else None
+    if not isinstance(primitives, list) or not primitives:
+        problems.append(label + ": trace has no primitives %s" % error)
+    else:
+        bad = [i for i, p in enumerate(primitives) if not isinstance(p, dict) or any(k not in p for k in TRACE_KEYS)
+               or not isinstance(p.get("corners"), list) or len(p.get("corners")) != 4]
+        if bad:
+            problems.append(label + ": %d primitives lack %s (first: #%d)" % (len(bad), "/".join(TRACE_KEYS), bad[0]))
+    formula, error = load_json_file(ctx, (frame.get("formula_check") or {}).get("path", ""))
+    checks = formula.get("checks") if isinstance(formula, dict) else None
+    if not isinstance(checks, list) or not checks:
+        problems.append(label + ": formula check has no checks %s" % error)
+    else:
+        failed = []
+        for check in checks:
+            try:
+                if abs(float(check["expected"]) - float(check["actual"])) > float(check.get("tolerance", 0)):
+                    failed.append(check.get("name", "?"))
+            except (KeyError, TypeError, ValueError):
+                failed.append(str(check.get("name", "?")) if isinstance(check, dict) else "?")
+        if failed:
+            problems.append(label + ": formula check %d/%d (failing: %s)" % (len(checks) - len(failed), len(checks), ", ".join(failed[:3])))
+    if len(frame.get("layers", [])) < 2 or files_changed(ctx, frame.get("layers", [])):
+        problems.append(label + ": needs a layer-by-layer rebuild (at least two layer images, unchanged)")
+    return problems
+
+
+def frame_problems(ctx: Context, presentation: Dict[str, Any]) -> List[str]:
+    reference = presentation.get("reference", {})
+    scene_types = reference.get("scene_types", [])
+    frames = {f.get("scene_type"): f for f in presentation.get("frames", []) if isinstance(f, dict)}
+    problems = []
+    for scene in scene_types:
+        frame = frames.get(scene)
+        if frame is None:
+            problems.append("no frame study for scene type %s (`gre.py present frame`)" % scene)
+            continue
+        if frame.get("mode") == "runtime":
+            problems += trace_problems(ctx, frame)
+        elif frame.get("mode") == "source":
+            if reference.get("original_runtime") != "UNAVAILABLE":
+                problems.append("frame %s: the original can run; trace a real frame instead of a source walkthrough" % scene)
+            problems += files_changed(ctx, [frame.get("walkthrough") or {}]) and ["frame %s: walkthrough file missing or changed" % scene] or []
+        else:
+            problems.append("frame %s: mode must be runtime or source" % scene)
+    return problems
+
+
+def base_outputs(data: Dict[str, Any]) -> set:
+    """Hashes of files produced by the Base or with own test art (verification, experiment, probe evidence)."""
+    shas = set()
+    for item in data["parity"].get("items", []):
+        shas |= {v.get("sha256") for v in item.get("verification", []) if isinstance(v, dict)}
+    presentation = data.get("presentation") or {}
+    for check in presentation.get("experiment", {}).get("checks", {}).values():
+        shas |= {e.get("sha256") for e in check.get("evidence", []) if isinstance(e, dict)}
+    for probe in data["probes"].get("probes", []):
+        for category in probe.get("replaces", {}).values():
+            shas |= {e.get("sha256") for e in category.get("evidence", []) if isinstance(e, dict)}
+    shas.discard(None)
+    return shas
+
+
+def evidence_misuse(data: Dict[str, Any]) -> List[str]:
+    outputs = base_outputs(data)
+    problems = []
+    presentation = data.get("presentation") or {}
+    for tid, topic in presentation.get("study", {}).items():
+        if any(isinstance(r, dict) and r.get("sha256") in outputs for r in topic.get("refs", [])):
+            problems.append("%s: cites a Base/test output as evidence of the original; own art proves self-consistency only" % tid)
+    for item in data["parity"].get("items", []):
+        if any(isinstance(r, dict) and r.get("sha256") in outputs for r in item.get("original", {}).get("refs", [])):
+            problems.append("%s: cites a Base/test output as original evidence" % item.get("id"))
+    return problems
+
+
+def parity_conflicts(data: Dict[str, Any]) -> List[str]:
+    presentation = data.get("presentation") or {}
+    items = {i.get("id"): i for i in data["parity"].get("items", []) if isinstance(i, dict)}
+    problems = []
+    for tid, topic in presentation.get("study", {}).items():
+        if topic.get("decision") in ("C", "D") or topic.get("base_relation") in ("different_method", "downgrade", "missing"):
+            for iid in topic.get("items", []):
+                item = items.get(iid)
+                if item and item.get("capability_class") == "PARITY" and item.get("status") in ("IMPLEMENTED", "VERIFIED"):
+                    problems.append("%s is claimed PARITY but %s records %s/%s; use REPLACEMENT or EXTENSION and disclose the difference"
+                                    % (iid, tid, topic.get("decision") or "-", topic.get("base_relation") or "-"))
     return problems
 
 
 def presentation_problems(ctx: Context, data: Dict[str, Any]) -> List[str]:
-    """Presentation Reconstruction Gate: study + running experiment + original comparison record."""
+    """Presentation Reconstruction Gate: reference inventory, Original Pipeline First study, frame study,
+    running Base experiment, original comparison record, honest evidence."""
     problems = study_problems(ctx, data)
     presentation = data.get("presentation")
     if presentation is None:
         return problems
+    reference = presentation.get("reference", {})
+    if reference.get("original_runtime") not in ("AVAILABLE", "UNAVAILABLE") or reference.get("original_assets") not in REFERENCE_ASSETS[1:]:
+        problems.append("record what reference material exists: can the original run, and are legal original assets available? (`gre.py present reference`)")
+    elif not reference.get("scene_types"):
+        problems.append("list the scene types that need a frame study (`gre.py present reference --scene-types ...`)")
+    else:
+        problems += frame_problems(ctx, presentation)
     checks = presentation.get("experiment", {}).get("checks", {})
     kinds = set()
     for cid in PX_CHECKS:
         check = checks.get(cid)
         if not isinstance(check, dict):
-            problems.append(cid + " is missing from the reconstruction experiment")
+            problems.append(cid + " is missing from the reconstruction experiment (run `gre.py upgrade`)")
             continue
         problems += check_problems(ctx, cid, check, data)
         if check.get("status") == "PASS":
@@ -1206,18 +1418,46 @@ def presentation_problems(ctx: Context, data: Dict[str, Any]) -> List[str]:
     if comparison.get("status") == "DONE":
         if not any(isinstance(e, dict) and e.get("kind") in ("comparison", "recording", "measurement") for e in comparison.get("evidence", [])):
             problems.append("original comparison DONE needs comparison/recording/measurement evidence")
+        if comparison.get("asset_source") not in ASSET_SOURCES:
+            problems.append("original comparison must say whether original, placeholder or own test assets were on screen")
     elif comparison.get("status") == "UNAVAILABLE":
         if not text(comparison.get("reason")):
             problems.append("original comparison UNAVAILABLE needs a reason")
     else:
         problems.append("record the dynamic comparison with the original (`gre.py present compare --status DONE|UNAVAILABLE`)")
-    return problems
+    return problems + parity_conflicts(data) + evidence_misuse(data)
+
+
+def fidelity(data: Dict[str, Any]) -> Dict[str, str]:
+    """Mechanism fidelity (how frames are composed) and visual fidelity (real original pixels) are separate claims."""
+    presentation = data.get("presentation") or {}
+    study = presentation.get("study", {})
+    reference = presentation.get("reference", {})
+    decisions = {tid: t.get("decision", "") for tid, t in study.items() if isinstance(t, dict) and not text(t.get("na_basis"))}
+    undecided = [t for t, d in decisions.items() if d not in DECISIONS]
+    unknown = [t for t, d in decisions.items() if d == "D"]
+    changed = [t for t, d in decisions.items() if d == "C"]
+    runtime_frames = [f for f in presentation.get("frames", []) if isinstance(f, dict) and f.get("mode") == "runtime"]
+    if undecided or not decisions:
+        mechanism = "NOT ESTABLISHED (undecided: %s)" % ", ".join(undecided[:5] or ["all"])
+    else:
+        basis = "runtime-traced" if runtime_frames and reference.get("original_runtime") == "AVAILABLE" else "source-confirmed only"
+        mechanism = "%s; %s" % (basis, "equivalent method on every topic" if not unknown and not changed else
+                                "NOT fully equivalent — changed: %s; unknown: %s" % (", ".join(changed) or "none", ", ".join(unknown) or "none"))
+    comparison = presentation.get("original_comparison", {})
+    if reference.get("original_assets") != "LEGAL_ORIGINAL":
+        visual = "NOT VERIFIED — no legal original pixels in the research environment; never claim visual equivalence"
+    elif comparison.get("status") != "DONE" or comparison.get("asset_source") != "original":
+        visual = "NOT VERIFIED — no side-by-side comparison with the original's real assets"
+    else:
+        visual = "compared side by side with legal original assets"
+    return {"mechanism": mechanism, "visual": visual}
 
 
 def presentation_equivalence(data: Dict[str, Any]) -> str:
     comparison = (data.get("presentation") or {}).get("original_comparison", {})
     if comparison.get("status") == "DONE":
-        return "dynamically compared with the original"
+        return "dynamically compared with the original (%s assets)" % (comparison.get("asset_source") or "unspecified")
     if comparison.get("status") == "UNAVAILABLE":
         return "NOT dynamically verified (original could not be run: %s); do not claim visual equivalence" % text(comparison.get("reason"))
     return "not compared yet"
@@ -1226,40 +1466,109 @@ def presentation_equivalence(data: Dict[str, Any]) -> str:
 def load_presentation(ctx: Context) -> Dict[str, Any]:
     if not ctx.path("PRESENTATION.json").is_file():
         raise ValueError("PRESENTATION.json is missing; run `gre.py upgrade` first")
-    return ctx.load("PRESENTATION.json")
+    presentation = ctx.load("PRESENTATION.json")
+    defaults = load_json(template("PRESENTATION.json"))
+    for tid, topic in defaults["study"].items():
+        presentation.setdefault("study", {}).setdefault(tid, topic)
+    for cid, check in defaults["experiment"]["checks"].items():
+        presentation.setdefault("experiment", {}).setdefault("checks", {}).setdefault(cid, check)
+    presentation.setdefault("reference", defaults["reference"])
+    presentation.setdefault("frames", [])
+    return presentation
 
 
 def present_study(ctx: Context, tid: str, level: Optional[str] = None, evidence: Optional[str] = None, kind: str = "",
                   observed: str = "", local: bool = False, gap: Optional[str] = None, items: Optional[List[str]] = None,
-                  na_basis: Optional[str] = None, **fields: Optional[str]) -> List[str]:
+                  na_basis: Optional[str] = None, decision: Optional[str] = None, relation: Optional[str] = None,
+                  modules: Optional[List[str]] = None, deviation: Optional[Dict[str, str]] = None,
+                  correct: Optional[str] = None, affects: Optional[List[str]] = None, **fields: Optional[str]) -> List[str]:
     if tid not in PR_TOPICS:
         raise ValueError("topic must be one of " + ", ".join(PR_TOPICS))
     presentation = load_presentation(ctx)
     topic = presentation["study"][tid]
     added = []
+    messages = []
+    if correct is not None:
+        if not text(correct) or not affects:
+            raise ValueError("--correct needs the corrected fact and --affects listing every downstream implementation that relied on the old conclusion")
+        previous = "; ".join("%s=%s" % (k, topic.get(k)) for k in ("original_method", "data_structures") if text(topic.get(k)))
+        topic.setdefault("corrections", []).append({"utc": now_utc(), "was": previous or "(previous conclusion)", "now": correct, "affects": affects})
+        topic["revision"] = int(topic.get("revision", 0)) + 1
+        messages.append("%s corrected (revision %d); downstream checks and parity items linked to it are now stale until re-verified: %s"
+                        % (tid, topic["revision"], ", ".join(affects)))
     if evidence:
         entry = evidence_entry(ctx.root, evidence, kind or "static-analysis", observed or "original presentation evidence", "local_research" if local else "")
+        entry["subject"] = "original"
         topic.setdefault("refs", []).append(entry)
         added.append(entry)
     if level is not None:
         if level not in EVIDENCE_LEVELS:
             raise ValueError("level must be one of " + ", ".join(EVIDENCE_LEVELS))
         topic["evidence_level"] = level
-    for key, value in list(fields.items()) + [("dynamic_gap", gap), ("na_basis", na_basis)]:
+    for key, value in list(fields.items()) + [("dynamic_gap", gap), ("na_basis", na_basis), ("decision", decision), ("base_relation", relation)]:
         if value is not None:
             topic[key] = value
     if items is not None:
         topic["items"] = items
+    if modules is not None:
+        topic["reuse_modules"] = modules
+    if deviation:
+        topic.setdefault("deviation", {}).update({k: v for k, v in deviation.items() if v is not None})
     parity_items = {i.get("id"): i for i in ctx.load("PARITY.json").get("items", []) if isinstance(i, dict)}
-    errors, _ = study_errors(ctx, tid, topic, parity_items)
+    errors, _ = study_errors(ctx, tid, topic, parity_items, reuse_index(ctx.load("REUSE.json")))
     if errors:
         raise ValueError("Topic %s rejected:\n- %s" % (tid, "\n- ".join(errors)))
-    topic.setdefault("history", []).append({"utc": now_utc(), "level": topic.get("evidence_level"),
+    topic.setdefault("history", []).append({"utc": now_utc(), "level": topic.get("evidence_level"), "decision": topic.get("decision", ""),
+                                            "revision": topic.get("revision", 0),
                                             "evidence": [{"path": e["path"], "sha256": e["sha256"]} for e in added]})
     ctx.save("PRESENTATION.json", presentation)
-    ctx.log("present_study", topic=tid, level=topic.get("evidence_level"),
-            evidence=[{"path": e["path"], "sha256": e["sha256"]} for e in added], locations=[e.get("location", "") for e in added])
-    return ["%s %s: %s" % (tid, topic.get("name"), topic.get("evidence_level"))]
+    ctx.log("present_study", topic=tid, level=topic.get("evidence_level"), decision=topic.get("decision", ""),
+            revision=topic.get("revision", 0), evidence=[{"path": e["path"], "sha256": e["sha256"]} for e in added],
+            locations=[e.get("location", "") for e in added])
+    return ["%s %s: %s %s" % (tid, topic.get("name"), topic.get("evidence_level"), topic.get("decision", ""))] + messages
+
+
+def present_reference(ctx: Context, runtime: str, assets: str, scene_types: Optional[List[str]], evidence: List[Tuple[str, str]],
+                      notes: str = "") -> List[str]:
+    if runtime not in REFERENCE_RUNTIME or assets not in REFERENCE_ASSETS:
+        raise ValueError("runtime must be %s; assets must be %s" % ("/".join(REFERENCE_RUNTIME), "/".join(REFERENCE_ASSETS)))
+    presentation = load_presentation(ctx)
+    reference = presentation["reference"]
+    if reference.get("original_runtime") != "UNKNOWN":
+        reference.setdefault("history", []).append({k: reference.get(k) for k in ("original_runtime", "original_assets", "scene_types", "notes")})
+    entries = [evidence_entry(ctx.root, p, k or "inventory", "reference inventory") for p, k in evidence]
+    reference.update(original_runtime=runtime, original_assets=assets, notes=notes, utc=now_utc())
+    reference.setdefault("evidence", []).extend(entries)
+    if scene_types is not None:
+        reference["scene_types"] = scene_types
+    ctx.save("PRESENTATION.json", presentation)
+    ctx.log("present_reference", runtime=runtime, assets=assets, evidence=[{"path": e["path"], "sha256": e["sha256"]} for e in entries])
+    lines = ["Reference: original runtime %s, original assets %s" % (runtime, assets)]
+    if assets != "LEGAL_ORIGINAL":
+        lines.append("No legal original pixels: the strongest presentation claim is 'structure confirmed from source/runtime'; visual equivalence stays NOT VERIFIED.")
+    return lines
+
+
+def present_frame(ctx: Context, scene: str, mode: str, trace: str = "", formula: str = "", layers: Optional[List[str]] = None,
+                  walkthrough: str = "", asset_source: str = "placeholder") -> List[str]:
+    if mode not in ("runtime", "source"):
+        raise ValueError("mode must be runtime (per-primitive trace of the original's draw path) or source (walkthrough when the original cannot run)")
+    if asset_source not in ASSET_SOURCES:
+        raise ValueError("asset source must be " + "/".join(ASSET_SOURCES))
+    presentation = load_presentation(ctx)
+    frame = {"scene_type": scene, "mode": mode, "asset_source": asset_source, "subject": "original", "utc": now_utc()}
+    if mode == "runtime":
+        frame.update(trace=collect_files(ctx, [trace])[0], formula_check=collect_files(ctx, [formula])[0], layers=collect_files(ctx, layers or []))
+    else:
+        frame["walkthrough"] = collect_files(ctx, [walkthrough])[0]
+    old = [f for f in presentation["frames"] if f.get("scene_type") == scene]
+    presentation.setdefault("frames_history", []).extend(old)
+    presentation["frames"] = [f for f in presentation["frames"] if f.get("scene_type") != scene] + [frame]
+    ctx.save("PRESENTATION.json", presentation)
+    ctx.log("present_frame", scene=scene, mode=mode, asset_source=asset_source,
+            evidence=[{"path": f["path"], "sha256": f["sha256"]} for f in [frame.get("trace"), frame.get("formula_check"), frame.get("walkthrough")] + frame.get("layers", []) if f])
+    problems = trace_problems(ctx, frame) if mode == "runtime" else []
+    return ["Frame study %s recorded (%s, %s pixels)" % (scene, mode, asset_source)] + ["PROBLEM: " + p for p in problems]
 
 
 def present_check(ctx: Context, cid: str, status: str, evidence: List[Tuple[str, str]], bind: List[str],
@@ -1271,11 +1580,13 @@ def present_check(ctx: Context, cid: str, status: str, evidence: List[Tuple[str,
     presentation = load_presentation(ctx)
     check = presentation["experiment"]["checks"][cid]
     entries = [evidence_entry(ctx.root, p, k or "runtime-capture", "%s %s" % (cid, check.get("name", ""))) for p, k in evidence]
+    for entry in entries:
+        entry["subject"] = "base"
     if check.get("status") != "UNVERIFIED" or check.get("evidence"):
-        check.setdefault("history", []).append({k: check.get(k) for k in ("status", "evidence", "bound_files", "core_fingerprint", "base_version", "swap", "resolutions") if k in check})
+        check.setdefault("history", []).append({k: check.get(k) for k in ("status", "evidence", "bound_files", "core_fingerprint", "base_version", "swap", "resolutions", "study_revisions") if k in check})
     fingerprint = ctx.fingerprint(ctx.core_paths())
     check.update(status=status, evidence=entries, bound_files=collect_files(ctx, bind), core_fingerprint=fingerprint,
-                 base_version=ctx.current_version(), note=note, utc=now_utc())
+                 base_version=ctx.current_version(), note=note, utc=now_utc(), study_revisions=study_revisions(presentation))
     if resolutions is not None:
         check["resolutions"] = resolutions
     if swap is not None:
@@ -1286,21 +1597,504 @@ def present_check(ctx: Context, cid: str, status: str, evidence: List[Tuple[str,
     ctx.log("present_check", check=cid, status=status, core_fingerprint=fingerprint,
             evidence=[{"path": e["path"], "sha256": e["sha256"]} for e in entries])
     data = snapshot(ctx)
-    return ["%s = %s" % (cid, status)] + ["PROBLEM: " + p for p in check_problems(ctx, cid, check, data)] if status == "PASS" else ["%s = %s" % (cid, status)]
+    if status != "PASS":
+        return ["%s = %s" % (cid, status)]
+    return ["%s = %s" % (cid, status)] + ["PROBLEM: " + p for p in check_problems(ctx, cid, check, data)]
 
 
-def present_compare(ctx: Context, status: str, evidence: List[Tuple[str, str]], reason: str = "") -> List[str]:
+def present_compare(ctx: Context, status: str, evidence: List[Tuple[str, str]], reason: str = "", asset_source: str = "") -> List[str]:
     if status not in ("DONE", "UNAVAILABLE"):
         raise ValueError("status must be DONE or UNAVAILABLE")
+    if status == "DONE" and asset_source not in ASSET_SOURCES:
+        raise ValueError("--asset-source original|placeholder|own_test is required: say which pixels were on screen")
     presentation = load_presentation(ctx)
     entries = [evidence_entry(ctx.root, p, k or "comparison", "side-by-side with the original") for p, k in evidence]
     comparison = presentation.setdefault("original_comparison", {})
     if comparison.get("status") not in (None, "PENDING"):
-        comparison.setdefault("history", []).append({k: comparison.get(k) for k in ("status", "evidence", "reason")})
-    comparison.update(status=status, evidence=entries, reason=reason, utc=now_utc())
+        comparison.setdefault("history", []).append({k: comparison.get(k) for k in ("status", "evidence", "reason", "asset_source")})
+    comparison.update(status=status, evidence=entries, reason=reason, asset_source=asset_source, utc=now_utc())
     ctx.save("PRESENTATION.json", presentation)
-    ctx.log("present_compare", status=status, evidence=[{"path": e["path"], "sha256": e["sha256"]} for e in entries])
-    return ["Original comparison = %s%s" % (status, "" if status == "DONE" else " — presentation equivalence will be reported as not dynamically verified")]
+    ctx.log("present_compare", status=status, asset_source=asset_source, evidence=[{"path": e["path"], "sha256": e["sha256"]} for e in entries])
+    note = "" if status == "DONE" and asset_source == "original" else " — visual equivalence stays NOT VERIFIED"
+    return ["Original comparison = %s%s" % (status, note)]
+
+
+# ---------------------------------------------------------------- creator gates
+
+CODE_SUFFIXES = {".ts", ".tsx", ".js", ".mjs", ".cjs", ".jsx", ".py", ".cs", ".gd", ".lua", ".cpp", ".cc", ".c", ".h", ".hpp",
+                 ".java", ".kt", ".swift", ".rs", ".go", ".json", ".yaml", ".yml", ".glsl", ".frag", ".vert", ".hlsl"}
+TERM_KEYS = {"id", "name", "title", "key", "label", "displayName", "display_name", "type", "text"}
+GENERIC_TERMS = {"default", "player", "enemy", "enemies", "level", "levels", "scene", "scenes", "index", "config", "image", "images",
+                 "sprite", "sprites", "sound", "sounds", "music", "button", "title", "name", "start", "pause", "score", "health",
+                 "damage", "speed", "background", "foreground", "shadow", "effect", "effects", "particle", "particles", "true",
+                 "false", "null", "string", "number", "value", "values", "width", "height", "normal", "linear", "additive", "multiply"}
+RUN_STATUSES = ("RUNNING", "TARGET_REACHED", "HANDOFF_READY", "EXTERNAL_BLOCKED", "RUNTIME_LIMIT", "USER_PAUSED")
+FIRST_USE_KINDS = ("create_content_pack", "import_assets", "validate_assets", "build", "launch_runtime", "playtest",
+                   "negative_missing_resource", "regression")
+KIT_ITEMS = {"start_here": "Quick Start / START_HERE for creators", "scene_design_template": "scene design reference template",
+             "camera_window_rules": "visible window and camera rules", "scene_geometry_contract": "scene and logic geometry contract",
+             "character_spec": "character size, anchor and socket conventions",
+             "layer_rules": "background, foreground, occlusion and effect organisation", "animation_import": "animation and atlas import",
+             "ui_theme": "UI layout and theme replacement", "new_pack_tool": "tool that creates a new resource/content pack",
+             "asset_validator": "asset integrity validator", "runnable_example": "runnable example content",
+             "concept_to_runtime": "how concept art, design, asset production and integration relate (if the game needs concept art)"}
+KIT_REQUIRED = {"start_here", "new_pack_tool", "asset_validator", "runnable_example"}
+TRIAL_CHECKS = ("new_content", "replace_background", "replace_character", "replace_animation", "replace_ui",
+                "gameplay_config", "playable_slice", "no_internal_research_needed")
+
+
+def text_files(ctx: Context, paths: List[str]):
+    for relative in paths:
+        folder = safe_path(ctx.root, relative)
+        if folder.exists():
+            for path in iter_files(folder):
+                if path.suffix.lower() in CODE_SUFFIXES:
+                    yield path
+
+
+def starter_terms(ctx: Context, state: Dict[str, Any]) -> Dict[str, str]:
+    """Names that belong to example content: ids/names in starter data files and starter asset file names."""
+    terms: Dict[str, str] = {}
+
+    def add(value: Any, origin: str) -> None:
+        if isinstance(value, str):
+            value = value.strip()
+            if (len(value) >= 4 and value.lower() not in GENERIC_TERMS and not re.fullmatch(r"[\d\W_]+", value)
+                    and len(value) <= 64 and "\n" not in value):
+                terms.setdefault(value, origin)
+
+    def walk(node: Any, origin: str) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in TERM_KEYS:
+                    add(value, origin)
+                walk(value, origin)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value, origin)
+
+    for relative in state.get("starter_paths", []):
+        folder = safe_path(ctx.root, relative)
+        if not folder.exists():
+            continue
+        for path in iter_files(folder):
+            origin = rel(ctx.root, path)
+            if path.suffix.lower() == ".json":
+                try:
+                    walk(json.loads(path.read_text(encoding="utf-8-sig")), origin)
+                except (OSError, ValueError):
+                    pass
+            elif path.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".ogg", ".mp3", ".wav", ".atlas", ".skel"):
+                add(path.stem, origin)
+    for term in state.get("content_terms", []):
+        add(term, "RE_STATE.content_terms")
+    return terms
+
+
+def decoupling_problems(ctx: Context, data: Dict[str, Any]) -> List[str]:
+    """The core must not depend on starter/example content, nor name its characters, assets or texts."""
+    state = data["state"]
+    starters = [p for p in state.get("starter_paths", []) if isinstance(p, str)]
+    if not starters:
+        return ["declare starter_paths (replaceable example content shipped with the Base) in RE_STATE.json"]
+    problems = []
+    core = [PurePosixPath(p) for p in data["core"]]
+    for starter in starters:
+        if any(inside(PurePosixPath(starter), c) for c in core):
+            problems.append("starter content %s lives inside the engine core; keep examples outside core_paths" % starter)
+    terms = starter_terms(ctx, state)
+    allowed = {(a.get("path"), a.get("term")) for a in state.get("decoupling_allow", []) if isinstance(a, dict) and text(a.get("reason"))}
+    hits = []
+    for path in text_files(ctx, data["core"]):
+        relative = rel(ctx.root, path)
+        try:
+            content = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for starter in starters:
+            if starter.rstrip("/") + "/" in content.replace("\\", "/") and (relative, starter) not in allowed:
+                hits.append("%s references starter path %s" % (relative, starter))
+        for term, origin in terms.items():
+            if (relative, term) in allowed:
+                continue
+            pattern = r"(?<![\w])%s(?![\w])" % re.escape(term) if re.fullmatch(r"[\w\- .]+", term, re.ASCII) else re.escape(term)
+            if re.search(pattern, content):
+                hits.append("%s names example content '%s' (from %s)" % (relative, term, origin))
+    if hits:
+        problems.append("Base core is coupled to example content (%d hits; first: %s). Move game-specific names, data and rules into content packs or extension modules, or justify in decoupling_allow" % (len(hits), hits[0]))
+    return problems
+
+
+def kit_problems(ctx: Context, data: Dict[str, Any]) -> List[str]:
+    kit = data.get("kit")
+    if kit is None:
+        return ["CREATOR_KIT.json is missing; run `gre.py upgrade`"]
+    problems = []
+    items = kit.get("items", {})
+    for key in KIT_ITEMS:
+        entry = items.get(key) if isinstance(items.get(key), dict) else {}
+        if text(entry.get("na_reason")):
+            if key in KIT_REQUIRED:
+                problems.append("creator kit %s cannot be NOT_APPLICABLE" % key)
+            continue
+        paths = entry.get("paths", [])
+        if not paths:
+            problems.append("creator kit is missing %s (%s); give paths or a reason it does not apply to this game" % (key, KIT_ITEMS[key]))
+            continue
+        for relative in paths:
+            try:
+                if not safe_path(ctx.root, relative).exists():
+                    problems.append("creator kit %s path %s does not exist" % (key, relative))
+            except ValueError as exc:
+                problems.append("creator kit %s: %s" % (key, exc))
+    spec = data.get("first_use") or {}
+    commands = {s.get("kind"): " ".join(command_argv(s, display=True)) for s in spec.get("steps", []) if isinstance(s, dict)}
+    for key, kind in (("new_pack_tool", "create_content_pack"), ("asset_validator", "validate_assets")):
+        paths = (items.get(key) or {}).get("paths", [])
+        if paths and not any(p in commands.get(kind, "") for p in paths):
+            problems.append("creator kit %s (%s) is not exercised by the first-use %s step" % (key, ", ".join(paths), kind))
+    return problems
+
+
+def command_argv(step: Dict[str, Any], display: bool = False) -> List[str]:
+    argv = step.get("argv_windows") if os.name == "nt" and step.get("argv_windows") else step.get("argv_posix") if os.name != "nt" and step.get("argv_posix") else step.get("argv")
+    argv = [str(a) for a in (argv or [])]
+    return [("python" if a == "{python}" else a) if display else (sys.executable if a == "{python}" else a) for a in argv]
+
+
+def first_use_spec_problems(ctx: Context, spec: Optional[Dict[str, Any]]) -> List[str]:
+    if spec is None:
+        return ["FIRST_USE.json is missing; run `gre.py upgrade`"]
+    problems = []
+    start_here = text(spec.get("start_here"))
+    doc = ""
+    try:
+        doc = safe_path(ctx.root, start_here).read_text(encoding="utf-8", errors="ignore") if start_here else ""
+    except (ValueError, OSError):
+        doc = ""
+    if not doc:
+        problems.append("first-use start_here document is missing; creators must be able to follow one official Quick Start")
+    steps = [s for s in spec.get("steps", []) if isinstance(s, dict)]
+    kinds = [s.get("kind") for s in steps]
+    for kind in FIRST_USE_KINDS:
+        if kind not in kinds:
+            problems.append("first-use has no %s step" % kind)
+    for step in steps:
+        label = "first-use step %s" % step.get("id")
+        if step.get("kind") not in FIRST_USE_KINDS:
+            problems.append(label + ": unknown kind")
+        if not command_argv(step):
+            problems.append(label + ": needs argv")
+        if step.get("kind") == "negative_missing_resource":
+            if not step.get("remove"):
+                problems.append(label + ": must list the required resources it deletes")
+            if step.get("expect", "failure") != "failure":
+                problems.append(label + ": must expect failure (validation or build has to block missing resources)")
+        elif doc and " ".join(command_argv(step, display=True)) not in doc:
+            problems.append(label + ": command `%s` does not appear in %s; the Quick Start and the gate must describe the same steps" % (" ".join(command_argv(step, display=True)), start_here))
+    return problems
+
+
+def first_use_run(ctx: Context) -> List[str]:
+    """Clone the committed Base into a clean directory and follow the creator Quick Start step by step."""
+    import shutil
+    import tempfile
+    spec = ctx.load("FIRST_USE.json")
+    problems = first_use_spec_problems(ctx, spec)
+    if problems:
+        raise ValueError("First-use spec is incomplete:\n- " + "\n- ".join(problems))
+    head = git_text(ctx.root, ["rev-parse", "HEAD"])
+    if not re.fullmatch(r"[0-9a-f]{40}", head):
+        raise ValueError("first-use needs a Git repository with a commit: it tests the committed Base in a clean checkout")
+    dirty = git_text(ctx.root, ["status", "--porcelain"])
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    log_dir = ctx.path("evidence") / ("first-use-" + stamp)
+    counter = 1
+    while log_dir.exists():
+        counter += 1
+        log_dir = ctx.path("evidence") / ("first-use-%s-%d" % (stamp, counter))
+    log_dir.mkdir(parents=True)
+    results, passed = [], True
+    with tempfile.TemporaryDirectory(prefix="gre-first-use-") as tmp:
+        checkout = Path(tmp) / "checkout"
+        clone = subprocess.run(["git", "clone", "-q", "--no-hardlinks", str(ctx.root), str(checkout)], capture_output=True, text=True)
+        if clone.returncode != 0:
+            raise ValueError("clean clone failed: " + clone.stderr.strip())
+        env = dict(os.environ)
+        cache = Path(tmp) / "cache"
+        for key in ("npm_config_cache", "YARN_CACHE_FOLDER", "PIP_CACHE_DIR", "XDG_CACHE_HOME", "PNPM_HOME"):
+            env[key] = str(cache / key)
+        for step in spec["steps"]:
+            cwd = safe_path(checkout, step.get("cwd") or ".")
+            for relative in step.get("remove", []) or []:
+                target = safe_path(checkout, relative)
+                if target.is_dir():
+                    shutil.rmtree(str(target))
+                elif target.exists():
+                    target.unlink()
+            argv = command_argv(step)
+            resolved = shutil.which(argv[0]) or argv[0]
+            started = datetime.now(timezone.utc)
+            try:
+                run = subprocess.run([resolved] + argv[1:], cwd=str(cwd), env=env, capture_output=True, text=True,
+                                     encoding="utf-8", errors="replace", timeout=int(step.get("timeout_min", 10)) * 60)
+                code, out = run.returncode, run.stdout + run.stderr
+            except subprocess.TimeoutExpired as exc:
+                code, out = -9, "TIMEOUT after %s min\n%s" % (step.get("timeout_min", 10), exc.output or "")
+            except OSError as exc:
+                code, out = -1, "could not start: %s" % exc
+            expect = step.get("expect", "failure" if step.get("kind") == "negative_missing_resource" else "success")
+            ok = (code == 0) if expect == "success" else (code not in (0, -1, -9))
+            log = log_dir / ("%02d-%s.log" % (len(results) + 1, re.sub(r"[^A-Za-z0-9_-]+", "-", str(step.get("id")))))
+            create_new(log, ("$ %s\nexit=%s\n\n%s" % (" ".join(argv), code, out)).encode("utf-8"))
+            results.append({"id": step.get("id"), "kind": step.get("kind"), "exit": code, "expect": expect, "ok": ok,
+                            "seconds": round((datetime.now(timezone.utc) - started).total_seconds(), 1),
+                            "log": {"path": rel(ctx.root, log), "sha256": digest(log)}})
+            if not ok:
+                passed = False
+                break
+    record = {"utc": now_utc(), "commit": head, "dirty_worktree": bool(dirty), "core_fingerprint": ctx.fingerprint(ctx.core_paths()),
+              "base_version": ctx.current_version(), "spec_steps_sha256": steps_hash(spec), "passed": passed,
+              "steps": results}
+    spec.setdefault("runs", []).append(record)
+    ctx.save("FIRST_USE.json", spec)
+    ctx.log("first_use", passed=passed, commit=head, evidence=[r["log"] for r in results])
+    lines = ["Clean first-use run %s at %s (%d steps executed)" % ("PASSED" if passed else "FAILED", head[:12], len(results))]
+    lines += ["  %-28s %s exit=%s (expected %s)" % (r["id"], "ok " if r["ok"] else "FAIL", r["exit"], r["expect"]) for r in results]
+    if dirty:
+        lines.append("NOTE: uncommitted changes were NOT tested; the clean checkout uses the last commit only.")
+    return lines
+
+
+def first_use_problems(ctx: Context, data: Dict[str, Any]) -> List[str]:
+    spec = data.get("first_use")
+    problems = first_use_spec_problems(ctx, spec)
+    if problems:
+        return problems
+    runs = spec.get("runs", [])
+    if not runs:
+        return ["run the clean first-use gate (`gre.py first-use run`)"]
+    last = runs[-1]
+    if not last.get("passed"):
+        failed = next((s for s in last.get("steps", []) if not s.get("ok")), {})
+        return ["the last clean first-use run failed at %s (see %s)" % (failed.get("id"), (failed.get("log") or {}).get("path"))]
+    head = git_text(ctx.root, ["rev-parse", "HEAD"])
+    if last.get("commit") != head:
+        problems.append("the last clean first-use run tested %s, but HEAD is %s; re-run it" % (str(last.get("commit"))[:12], head[:12]))
+    if last.get("core_fingerprint") != data["fingerprint"] or last.get("base_version") != data["current"]:
+        problems.append("the engine core or Base version changed after the last clean first-use run; re-run it")
+    if last.get("spec_steps_sha256") != steps_hash(spec):
+        problems.append("FIRST_USE.json steps or Quick Start changed after the last run; re-run it")
+    return problems
+
+
+def steps_hash(spec: Dict[str, Any]) -> str:
+    return hashlib.sha256(json_bytes({"start_here": spec.get("start_here"), "steps": spec.get("steps", [])})).hexdigest()
+
+
+def contributors(ctx: Context, state: Dict[str, Any]) -> set:
+    names = {e.get("agent") for e in ctx.history() if e.get("event") == "assign"}
+    names |= {e.get("previous") for e in ctx.history() if e.get("event") == "assign"}
+    names.add(state.get("assignment", {}).get("agent_label"))
+    return {n for n in names if text(n)}
+
+
+def core_manifest(ctx: Context, paths: List[str]) -> Dict[str, str]:
+    manifest = {}
+    for relative in paths:
+        folder = safe_path(ctx.root, relative)
+        if folder.exists():
+            for path in iter_files(folder):
+                manifest[rel(ctx.root, path)] = digest(path)
+    return manifest
+
+
+def trial_start(ctx: Context, agent: str, independence: str, docs: List[str]) -> List[str]:
+    if independence not in REVIEW_MODES[:3]:
+        raise ValueError("independence must be self_review, separate_context_same_environment or independent_reviewer")
+    for relative in docs:
+        if not safe_path(ctx.root, relative).is_file():
+            raise ValueError("creator document not found: " + relative)
+    trials = ctx.load("REUSE_TRIAL.json")
+    state = ctx.load("RE_STATE.json")
+    record = {"id": "trial-%02d" % (len(trials.get("trials", [])) + 1), "agent": agent, "independence": independence,
+              "docs": docs, "status": "RUNNING", "started_utc": now_utc(), "base_version": ctx.current_version(),
+              "core_fingerprint": ctx.fingerprint(ctx.core_paths()), "core_manifest": core_manifest(ctx, ctx.core_paths()),
+              "base_contributor": agent in contributors(ctx, state)}
+    trials.setdefault("trials", []).append(record)
+    ctx.save("REUSE_TRIAL.json", trials)
+    ctx.log("reuse_trial_start", trial=record["id"], agent=agent, independence=independence)
+    lines = ["Independent reuse trial %s started by %s with: %s" % (record["id"], agent, ", ".join(docs))]
+    if record["base_contributor"] or independence != "independent_reviewer":
+        lines.append("NOTE: %s worked on this Base or is not an independent reviewer; the trial can be recorded but cannot satisfy CREATOR_READY." % agent)
+    return lines
+
+
+def trial_finish(ctx: Context, result: str, checks: Dict[str, bool], evidence: List[Tuple[str, str]], assets: int, steps: int,
+                 manual: List[str], minutes: Optional[float], unverified: List[str], notes: str = "") -> List[str]:
+    if result not in ("PASS", "FAIL", "BLOCKED"):
+        raise ValueError("result must be PASS, FAIL or BLOCKED")
+    trials = ctx.load("REUSE_TRIAL.json")
+    running = [t for t in trials.get("trials", []) if t.get("status") == "RUNNING"]
+    if not running:
+        raise ValueError("no running trial; start one with `gre.py reuse-trial start`")
+    trial = running[-1]
+    after = core_manifest(ctx, ctx.core_paths())
+    before = trial.get("core_manifest", {})
+    changed = sorted(p for p in set(before) | set(after) if before.get(p) != after.get(p))
+    entries = [evidence_entry(ctx.root, p, k or "recording", "independent reuse trial") for p, k in evidence]
+    trial.update(status=result, finished_utc=now_utc(), checks={k: bool(checks.get(k)) for k in TRIAL_CHECKS},
+                 core_files_changed=changed, evidence=entries, assets=assets, steps=steps, manual_interventions=manual,
+                 first_success_minutes=minutes, unverified=unverified, notes=notes)
+    ctx.save("REUSE_TRIAL.json", trials)
+    ctx.log("reuse_trial_finish", trial=trial["id"], result=result, core_files_changed=len(changed),
+            evidence=[{"path": e["path"], "sha256": e["sha256"]} for e in entries])
+    lines = ["Trial %s = %s; core files changed: %d" % (trial["id"], result, len(changed))]
+    lines += ["PROBLEM: " + p for p in trial_problems(ctx, trial, {"current": ctx.current_version(), "fingerprint": ctx.fingerprint(ctx.core_paths())})]
+    return lines
+
+
+def trial_problems(ctx: Context, trial: Optional[Dict[str, Any]], data: Dict[str, Any]) -> List[str]:
+    if not trial:
+        return ["no independent reuse trial yet: an Agent that did not build this Base must create a playable slice from the creator docs alone (`gre.py reuse-trial start`)"]
+    if trial.get("status") != "PASS":
+        return ["the latest independent reuse trial is %s%s" % (trial.get("status"), (": " + text(trial.get("notes"))) if text(trial.get("notes")) else "")]
+    problems = []
+    if trial.get("independence") != "independent_reviewer" or trial.get("base_contributor"):
+        problems.append("trial agent %s is not independent of the Base development" % trial.get("agent"))
+    if trial.get("core_files_changed"):
+        problems.append("trial needed %d engine-core changes (%s); a playable slice must be possible without modifying the core" % (len(trial["core_files_changed"]), ", ".join(trial["core_files_changed"][:3])))
+    missing = [k for k in TRIAL_CHECKS if not (trial.get("checks") or {}).get(k)]
+    if missing:
+        problems.append("trial did not demonstrate: " + ", ".join(missing))
+    if not any(isinstance(e, dict) and e.get("kind") in ("recording", "runtime-capture") for e in trial.get("evidence", [])):
+        problems.append("trial needs a recording of the playable slice")
+    if trial.get("base_version") != data["current"] or trial.get("core_fingerprint") != data["fingerprint"]:
+        problems.append("trial was run on another Base version or core; re-run it")
+    return problems
+
+
+def creator_candidate_problems(ctx: Context, data: Dict[str, Any]) -> List[str]:
+    problems = ["Decoupling: " + p for p in decoupling_problems(ctx, data)]
+    problems += ["Creator kit: " + p for p in kit_problems(ctx, data)]
+    problems += ["Clean first-use: " + p for p in first_use_problems(ctx, data)]
+    dirty = git_dirty(ctx, data)
+    if dirty:
+        problems.append("Git baseline: uncommitted changes under core/starter paths (%s); commit them so the clean checkout tests what you deliver" % ", ".join(dirty[:3]))
+    return problems
+
+
+def git_dirty(ctx: Context, data: Dict[str, Any]) -> List[str]:
+    paths = list(data["core"]) + [p for p in data["state"].get("starter_paths", []) if isinstance(p, str)]
+    if not paths:
+        return []
+    output = git_text(ctx.root, ["status", "--porcelain", "--"] + paths)
+    if output.startswith("not available"):
+        return []
+    return [line[3:] for line in output.splitlines() if line.strip()]
+
+
+def kit_set(ctx: Context, item: str, paths: List[str], na_reason: str = "") -> List[str]:
+    if item not in KIT_ITEMS:
+        raise ValueError("kit item must be one of " + ", ".join(KIT_ITEMS))
+    kit = ctx.load("CREATOR_KIT.json")
+    entry = {"paths": [], "na_reason": na_reason, "utc": now_utc()} if na_reason else {"paths": paths, "na_reason": "", "utc": now_utc()}
+    for relative in paths:
+        safe_path(ctx.root, relative)
+    old = kit.setdefault("items", {}).get(item)
+    if old:
+        kit.setdefault("history", []).append({"item": item, "previous": old})
+    kit["items"][item] = entry
+    ctx.save("CREATOR_KIT.json", kit)
+    ctx.log("kit", item=item, paths=paths, na_reason=na_reason)
+    return ["Creator kit %s = %s" % (item, ", ".join(paths) or "N/A: " + na_reason)]
+
+
+def export_handoff(ctx: Context) -> List[str]:
+    """Write the creator handoff contract consumed by game-creation-polish (never overwrites earlier exports)."""
+    data = snapshot(ctx)
+    derived = derive_level(ctx, data)
+    kit = data.get("kit") or {}
+    files = []
+    for key, entry in (kit.get("items") or {}).items():
+        for relative in entry.get("paths", []):
+            files += [dict(f, kit_item=key) for f in collect_files(ctx, [relative])] if safe_path(ctx.root, relative).exists() else []
+    for relative in ("BASE_HANDOFF.md",):
+        if ctx.path(relative).is_file():
+            files.append({"path": rel(ctx.root, ctx.path(relative)), "sha256": digest(ctx.path(relative)), "kit_item": "base_handoff"})
+    runs = (data.get("first_use") or {}).get("runs", [])
+    trials = (data.get("trial") or {}).get("trials", [])
+    gates = {g.get("id"): g.get("status") for g in data["gates"].get("gates", []) if isinstance(g, dict)}
+    nxt = LEVELS[min(level_index(derived) + 1, len(LEVELS) - 1)]
+    contract = {"schema_version": "creator-handoff-1", "producer": "game-reverse-engineering %s" % SKILL_VERSION,
+                "created_utc": now_utc(), "base_id": ctx.base_id, "base_version": data["current"], "level": derived,
+                "git_head": git_text(ctx.root, ["rev-parse", "HEAD"]), "core_paths": data["core"], "core_fingerprint": data["fingerprint"],
+                "starter_paths": data["state"].get("starter_paths", []), "fidelity": fidelity(data),
+                "rights": {"RE01": gates.get("RE01", "missing"), "RE02": gates.get("RE02", "missing"), "RE03": gates.get("RE03", "missing"),
+                           "note": RESIDUAL_RISK},
+                "first_use": {"passed": bool(runs and runs[-1].get("passed")), "commit": runs[-1].get("commit") if runs else ""},
+                "independent_reuse": {"status": trials[-1].get("status") if trials else "NOT_RUN",
+                                      "agent": trials[-1].get("agent") if trials else ""},
+                "open_gaps": level_problems(ctx, nxt, data)[:20] if derived != LEVELS[-1] else [],
+                "files": files}
+    folder = ctx.base_dir / "handoff" / data["current"]
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    destination = folder / ("%s-CREATOR_HANDOFF.json" % stamp)
+    counter = 1
+    while not create_new(destination, json_bytes(contract)):
+        counter += 1
+        destination = folder / ("%s-%d-CREATOR_HANDOFF.json" % (stamp, counter))
+    ctx.log("export", level=derived, evidence=[{"path": rel(ctx.root, destination), "sha256": digest(destination)}])
+    lines = ["Creator handoff written: %s (level %s)" % (rel(ctx.root, destination), derived)]
+    if level_index(derived) < LEVELS.index("CREATOR_CANDIDATE"):
+        lines.append("NOTE: below CREATOR_CANDIDATE; game-creation-polish will treat this Base as not ready for production.")
+    return lines
+
+
+def stop(ctx: Context, status: str, reason: str) -> List[str]:
+    if status not in RUN_STATUSES:
+        raise ValueError("status must be one of " + ", ".join(RUN_STATUSES))
+    if status in ("EXTERNAL_BLOCKED", "RUNTIME_LIMIT", "USER_PAUSED") and not text(reason):
+        raise ValueError(status + " needs a truthful --reason (what blocks, what was tried, how to unblock)")
+    state = ctx.load("RE_STATE.json")
+    if status == "TARGET_REACHED":
+        data = snapshot(ctx)
+        if level_index(derive_level(ctx, data)) < level_index(state.get("target_level")):
+            problems = level_problems(ctx, state.get("target_level"), data)
+            raise ValueError("Target %s not reached; keep working:\n- %s" % (state.get("target_level"), "\n- ".join(problems[:8])))
+    state["run"] = {"status": status, "reason": reason, "utc": now_utc()}
+    ctx.save("RE_STATE.json", state)
+    ctx.log("run_status", status=status, reason=reason)
+    return ["Run status = %s" % status]
+
+
+def base_bump(ctx: Context, version: str, summary: str) -> List[str]:
+    if not VERSION_RE.fullmatch(version) or not text(summary):
+        raise ValueError("base bump needs --version like 1.2.0 and --summary (what changed, breaking or not)")
+    path = ctx.base_dir / "BASE.json"
+    base = load_json(path)
+    if any(v.get("version") == version for v in base.get("versions", [])):
+        raise ValueError("version already exists: " + version)
+    base.setdefault("versions", []).append({"version": version, "readiness": "NONE", "frozen": False, "summary": summary, "created_utc": now_utc()})
+    base["current_version"] = version
+    save_json(path, base)
+    ctx.log("base_bump", version=version, summary=summary)
+    return ["Base %s current version is now %s; every level must be re-verified for it" % (ctx.base_id, version)]
+
+
+def base_freeze(ctx: Context) -> List[str]:
+    data = snapshot(ctx)
+    derived = derive_level(ctx, data)
+    if level_index(derived) < LEVELS.index("CREATOR_CANDIDATE"):
+        raise ValueError("only a CREATOR_CANDIDATE or CREATOR_READY version can be frozen as a production baseline (now %s)" % derived)
+    path = ctx.base_dir / "BASE.json"
+    base = load_json(path)
+    for entry in base.get("versions", []):
+        if entry.get("version") == data["current"]:
+            entry.update(frozen=True, readiness=derived, frozen_utc=now_utc(), git_head=git_text(ctx.root, ["rev-parse", "HEAD"]))
+    save_json(path, base)
+    ctx.log("base_freeze", version=data["current"], level=derived)
+    return ["Base %s@%s frozen at %s; later changes need `gre.py base bump`" % (ctx.base_id, data["current"], derived)]
 
 
 # ---------------------------------------------------------------- levels
@@ -1313,6 +2107,8 @@ def snapshot(ctx: Context) -> Dict[str, Any]:
     data["fingerprint"] = ctx.fingerprint(data["core"])
     data["modules"] = reuse_index(data["reuse"])
     data["presentation"] = ctx.load("PRESENTATION.json") if ctx.path("PRESENTATION.json").is_file() else None
+    for key, name in (("kit", "CREATOR_KIT.json"), ("first_use", "FIRST_USE.json"), ("trial", "REUSE_TRIAL.json")):
+        data[key] = ctx.load(name) if ctx.path(name).is_file() else None
     data["_item_errors"] = {}
     return data
 
@@ -1343,7 +2139,7 @@ def level_problems(ctx: Context, level: str, data: Dict[str, Any]) -> List[str]:
         problems.append("REUSE.json still has REVIEW modules")
     problems += reuse_errors(ctx, data["reuse"], data["core"])[:3]
     problems += discovery_problems(data["parity"])
-    groups = [g for g, lv in GROUP_LEVEL.items() if level_index(lv) <= target]
+    groups = [g for g, lv in GROUP_MIN_LEVEL.items() if level_index(lv) <= target]
     for item in items:
         if DOMAIN_GROUP.get(item.get("domain")) not in groups:
             continue
@@ -1353,7 +2149,7 @@ def level_problems(ctx: Context, level: str, data: Dict[str, Any]) -> List[str]:
             continue
         if item_scope(item) != "core":
             continue
-        problem = item_counts(ctx, item, current, data["core"])
+        problem = item_counts(ctx, item, current, data["core"], data.get("presentation"))
         if problem:
             problems.append("%s %s: %s" % (item.get("id"), item.get("name"), problem))
     for domain, group in DOMAIN_GROUP.items():
@@ -1362,12 +2158,12 @@ def level_problems(ctx: Context, level: str, data: Dict[str, Any]) -> List[str]:
         domain_items = [i for i in items if i.get("domain") == domain]
         if not domain_items:
             problems.append("domain %s has no items" % domain)
-        elif domain not in OPTIONAL_DOMAINS and not any(item_counts(ctx, i, current, data["core"]) is None
+        elif domain not in OPTIONAL_DOMAINS and not any(item_counts(ctx, i, current, data["core"], data.get("presentation")) is None
                                                         and i.get("status") == "VERIFIED" for i in domain_items):
             problems.append("domain %s needs at least one VERIFIED capability (it cannot be entirely NOT_APPLICABLE or excluded)" % domain)
     if target >= LEVELS.index("PRESENTATION_READY"):
         problems += ["Presentation Reconstruction Gate: " + p for p in presentation_problems(ctx, data)]
-    if target >= LEVELS.index("CREATOR_READY"):
+    if target >= LEVELS.index("CREATOR_CANDIDATE"):
         probe_problems, valid = probe_errors(ctx, data["probes"], data)
         required = data["probes"].get("required_probes", 2)
         if not isinstance(required, int) or required < 2:
@@ -1379,6 +2175,10 @@ def level_problems(ctx: Context, level: str, data: Dict[str, Any]) -> List[str]:
         for item in items:
             if item.get("status") == "VERIFIED" and item_scope(item) == "core" and item.get("reusable_for_new_games") is not True:
                 problems.append("%s is VERIFIED but not reusable_for_new_games; a core capability must be usable by new games" % item.get("id"))
+        problems += creator_candidate_problems(ctx, data)
+    if target >= LEVELS.index("CREATOR_READY"):
+        trials = (data.get("trial") or {}).get("trials", [])
+        problems += ["Independent reuse: " + p for p in trial_problems(ctx, trials[-1] if trials else None, data)]
     return problems
 
 
@@ -1407,7 +2207,7 @@ def set_level(ctx: Context, level: str, note: str = "") -> List[str]:
             if problems:
                 raise ValueError("Cannot claim %s for %s@%s:\n- %s" % (level, ctx.base_id, current, "\n- ".join(problems[:12])))
     entry = {"utc": now_utc(), "level": level, "base_version": current, "core_fingerprint": data["fingerprint"],
-             "skill_version": SKILL_VERSION, "note": note}
+             "git_head": git_text(ctx.root, ["rev-parse", "--short", "HEAD"]), "skill_version": SKILL_VERSION, "note": note}
     state.setdefault("level_history", []).append(entry)
     state.update(claimed_level=level, claimed_for_version=current)
     ctx.save("RE_STATE.json", state)
@@ -1556,6 +2356,8 @@ def parity_set(ctx: Context, iid: str, status: Optional[str] = None, approach: O
         item["base_version"] = ctx.current_version()
         item["verified_fingerprint"] = ctx.fingerprint(item_paths(item, ctx.core_paths()))
         item["verified_head"] = git_text(ctx.root, ["rev-parse", "--short", "HEAD"])
+        presentation = ctx.load("PRESENTATION.json") if ctx.path("PRESENTATION.json").is_file() else None
+        item["study_revisions"] = {t: study_revisions(presentation).get(t, 0) for t in topics_for_item(presentation, iid)}
     reuse = ctx.load("REUSE.json")
     errors, _ = item_errors(ctx, item, reuse_index(reuse))
     if errors and (item.get("status") in ("VERIFIED", "IMPLEMENTED", "NOT_APPLICABLE") or item_scope(item) == "excluded"
@@ -1777,11 +2579,11 @@ def candidates(ctx: Context, data: Optional[Dict[str, Any]] = None) -> List[Dict
     for item in data["parity"].get("items", []):
         if not isinstance(item, dict) or item_scope(item) == "excluded":
             continue
-        problem = item_counts(ctx, item, data["current"], data["core"])
+        problem = item_counts(ctx, item, data["current"], data["core"], data.get("presentation"))
         if problem is None:
             continue
         scope = item_scope(item)
-        group_level = GROUP_LEVEL[DOMAIN_GROUP.get(item.get("domain"), "creator")]
+        group_level = GROUP_MIN_LEVEL[DOMAIN_GROUP.get(item.get("domain"), "creator")]
         value = item.get("value") if isinstance(item.get("value"), dict) else {}
         score = {"core": 4, "optional": 1, "legacy": 0}[scope]
         reasons = [scope]
@@ -1819,12 +2621,24 @@ def candidates(ctx: Context, data: Optional[Dict[str, Any]] = None) -> List[Dict
             ranked.append({"id": "presentation-reconstruction", "name": "Presentation Reconstruction Gate", "score": 11,
                            "action": "study the original's scene composition and run the Base scene experiment: " + gate[0],
                            "reasons": ["blocks PRESENTATION_READY"], "problem": gate[0]})
-    if level_index(next_level) == LEVELS.index("CREATOR_READY") and level_index(target) >= LEVELS.index("CREATOR_READY"):
+    if level_index(next_level) == LEVELS.index("CREATOR_CANDIDATE") and level_index(target) >= LEVELS.index("CREATOR_CANDIDATE"):
         problems, valid = probe_errors(ctx, data["probes"], data)
         if len(valid) < data["probes"].get("required_probes", 2) or problems:
             ranked.append({"id": "creator-probes", "name": "Creator production test", "score": 12,
                            "action": "build two original probes with gameplay changes and a complete loop",
-                           "reasons": ["blocks CREATOR_READY"], "problem": problems[0] if problems else "missing probes"})
+                           "reasons": ["blocks CREATOR_CANDIDATE"], "problem": problems[0] if problems else "missing probes"})
+        gates = creator_candidate_problems(ctx, data)
+        if gates:
+            ranked.append({"id": "creator-gates", "name": "Decoupling, creator kit and clean first-use", "score": 12,
+                           "action": "make the Base usable by a new creator: " + gates[0],
+                           "reasons": ["blocks CREATOR_CANDIDATE"], "problem": gates[0]})
+    if level_index(next_level) == LEVELS.index("CREATOR_READY") and level_index(target) >= LEVELS.index("CREATOR_READY"):
+        trials = (data.get("trial") or {}).get("trials", [])
+        problems = trial_problems(ctx, trials[-1] if trials else None, data)
+        if problems:
+            ranked.append({"id": "independent-reuse", "name": "Independent Agent reuse trial", "score": 12,
+                           "action": "hand the creator docs to an Agent that did not build the Base: " + problems[0],
+                           "reasons": ["blocks CREATOR_READY"], "problem": problems[0]})
     ranked.sort(key=lambda c: (-c["score"], c["id"]))
     return ranked
 
@@ -2076,17 +2890,24 @@ def validate(root: Path, base_id: Optional[str] = None, strict: bool = False) ->
         for tid in PR_TOPICS:
             topic = presentation.get("study", {}).get(tid)
             if not isinstance(topic, dict):
-                errors.append("PRESENTATION: study topic %s is missing (do not delete topics; use na_basis)" % tid)
+                warnings.append("PRESENTATION: study topic %s is missing (added in a newer version); run `gre.py upgrade`" % tid)
                 continue
-            e, w = study_errors(ctx, tid, topic, items)
+            e, w = study_errors(ctx, tid, topic, items, data["modules"])
             errors += e
             warnings += w
         for cid in PX_CHECKS:
             check = presentation.get("experiment", {}).get("checks", {}).get(cid)
-            if not isinstance(check, dict) or check.get("status") not in ("PASS", "FAIL", "UNVERIFIED", "BLOCKED"):
-                errors.append("PRESENTATION: experiment check %s is missing or has an invalid status" % cid)
+            if not isinstance(check, dict):
+                warnings.append("PRESENTATION: experiment check %s is missing (added in a newer version); run `gre.py upgrade`" % cid)
+            elif check.get("status") not in ("PASS", "FAIL", "UNVERIFIED", "BLOCKED"):
+                errors.append("PRESENTATION: experiment check %s has an invalid status" % cid)
             elif check.get("status") == "PASS":
                 warnings += ["Presentation experiment: " + p for p in check_problems(ctx, cid, check, data)]
+        errors += evidence_misuse(data) + parity_conflicts(data)
+    for key, name in (("kit", "CREATOR_KIT.json"), ("first_use", "FIRST_USE.json"), ("trial", "REUSE_TRIAL.json")):
+        if data.get(key) is None:
+            warnings.append("%s is missing (added in 2.0.0); run `gre.py upgrade`" % name)
+    errors += device_path_errors(ctx)
     ids = []
     for gate in data["gates"].get("gates", []):
         if isinstance(gate, dict):
@@ -2125,17 +2946,23 @@ def validate(root: Path, base_id: Optional[str] = None, strict: bool = False) ->
     return errors, warnings
 
 
+def device_path_errors(ctx: Context) -> List[str]:
+    """Shared records must use project-relative paths; device paths belong in ignored .production/local/."""
+    errors = []
+    for path in sorted(ctx.re_dir.glob("*.json")) + sorted(ctx.re_dir.glob("*.md")):
+        match = ABS_PATH_RE.search(path.read_text(encoding="utf-8", errors="ignore"))
+        if match:
+            errors.append("%s contains a device-specific absolute path (%s); use project-relative paths" % (rel(ctx.root, path), match.group(0)[:40]))
+    return errors
+
+
 def rights_summary(ctx: Context, data: Dict[str, Any]) -> str:
-    try:
-        b02 = next((g.get("status") for g in load_json(ctx.base_dir / "GATES.json").get("gates", []) if g.get("id") == "B02"), "missing")
-    except ValueError:
-        b02 = "unreadable"
     gates = {g.get("id"): g.get("status") for g in data["gates"].get("gates", []) if isinstance(g, dict)}
     re03 = gates.get("RE03", "missing")
-    cleared = (b02 == "PASS" and gates.get("RE01") == "PASS" and re03 in ("PASS", "NOT_APPLICABLE") and gates.get("RE02") == "PASS")
-    return ("third-party code licenses (RE01)=%s, code source review (v4 B02)=%s, original assets/expression rights (RE03)=%s, "
+    cleared = (gates.get("RE01") == "PASS" and re03 in ("PASS", "NOT_APPLICABLE") and gates.get("RE02") == "PASS")
+    return ("code and component sources/licenses (RE01)=%s, original assets/expression rights (RE03)=%s, "
             "user publication approval (RE02)=%s; release rights record %s. %s"
-            % (gates.get("RE01", "missing"), b02, re03, gates.get("RE02", "missing"),
+            % (gates.get("RE01", "missing"), re03, gates.get("RE02", "missing"),
                "complete" if cleared else "INCOMPLETE", RESIDUAL_RISK))
 
 
@@ -2158,7 +2985,7 @@ def status_report(ctx: Context) -> str:
     static = [i["id"] for i in items if i.get("original", {}).get("evidence_level") in ("STATIC_ONLY", "INFERRED", "PROXY")]
     discovered = [i["id"] for i in items if i.get("origin") == "discovered"]
     scopes = {s: sum(1 for i in items if item_scope(i) == s) for s in SCOPES}
-    stale = [i["id"] for i in items if (item_counts(ctx, i, data["current"], data["core"]) or "").startswith("stale")]
+    stale = [i["id"] for i in items if (item_counts(ctx, i, data["current"], data["core"], data.get("presentation")) or "").startswith("stale")]
     probe_problems, valid = probe_errors(ctx, data["probes"], data)
     visual_only = [p.get("id") for p in data["probes"].get("probes", []) if isinstance(p, dict) and not p.get("gameplay_changes")]
     gate = presentation_problems(ctx, data)
@@ -2175,6 +3002,11 @@ def status_report(ctx: Context) -> str:
              "Creator probes: valid %d %s%s" % (len(valid), ", ".join(valid), (" | visual-only (not production evidence): " + ", ".join(visual_only)) if visual_only else ""),
              "Presentation Reconstruction Gate: " + ("PASS" if not gate else "FAIL (%d open: %s)" % (len(gate), gate[0])),
              "Presentation equivalence with the original: " + presentation_equivalence(data),
+             "Mechanism fidelity: " + fidelity(data)["mechanism"],
+             "Visual fidelity: " + fidelity(data)["visual"],
+             "Creator gates (decoupling, kit, clean first-use): " + ("PASS" if not creator_candidate_problems(ctx, data) else "FAIL — " + creator_candidate_problems(ctx, data)[0]),
+             "Independent reuse: " + ((data.get("trial") or {}).get("trials", [{}]) or [{}])[-1].get("status", "NOT_RUN"),
+             "Run status: %s %s" % (state.get("run", {}).get("status", "RUNNING"), state.get("run", {}).get("reason", "")),
              "Core paths: %s (fingerprint %s)" % (", ".join(data["core"]) or "-", data["fingerprint"][:12] or "-"),
              "Assignment: %s" % (state.get("assignment", {}).get("agent_label") or "-"),
              "Checkpoint: %s — next: %s" % (state.get("checkpoint", {}).get("utc") or "-", state.get("checkpoint", {}).get("next_action"))]
@@ -2240,7 +3072,7 @@ def write_report(ctx: Context) -> List[str]:
             if DOMAIN_GROUP.get(item.get("domain")) != group:
                 continue
             kinds = sorted({v.get("kind") for v in item.get("verification", []) if isinstance(v, dict)})
-            problem = item_counts(ctx, item, data["current"], data["core"])
+            problem = item_counts(ctx, item, data["current"], data["core"], data.get("presentation"))
             status = str(item.get("status")) + (" (过期)" if (problem or "").startswith("stale") else "")
             lines.append("| %s | %s / %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |" % (
                 item["id"], names.get(item["domain"], item["domain"]), item.get("name"), item_scope(item),
@@ -2252,7 +3084,9 @@ def write_report(ctx: Context) -> List[str]:
     gate = presentation_problems(ctx, data)
     lines += ["## 表现系统重建（Presentation Reconstruction Gate）", "",
               "- 门禁：%s" % ("通过" if not gate else "未通过（%d 项未完成）" % len(gate)),
-              "- 与原版的动态对照：" + presentation_equivalence(data), ""]
+              "- 与原版的动态对照：" + presentation_equivalence(data),
+              "- 机制保真（画面怎样组合出来）：" + fidelity(data)["mechanism"],
+              "- 视觉保真（真实原版像素）：" + fidelity(data)["visual"], ""]
     presentation = data.get("presentation") or {}
     lines += ["| 调查项 | 内容 | 证据等级 | 证据数 | 可复用实现方式 |", "|---|---|---|---|---|"]
     for tid in PR_TOPICS:
@@ -2282,8 +3116,22 @@ def write_report(ctx: Context) -> List[str]:
     relative = rel(ctx.root, destination)
     ctx.log("report", evidence=[{"path": relative, "sha256": digest(destination)}], level=derived)
     return ["Report written: " + relative,
-            "v4 mapping: LOGIC_READY items -> B03; P6 + asset items -> B05; C1 + probes -> B04/B07; build/test evidence -> B06;",
-            "dependent-game regression -> B08; research matrix -> B01. Rights stay with B02/RE01/RE03/RE02. Update v4 gates with project.py if you claim BASE_READY."]
+            "Deliver to game production with `gre.py export` (creator handoff read by game-creation-polish)."]
+
+
+def set_paths(ctx: Context, core: Optional[List[str]], starters: Optional[List[str]], terms: Optional[List[str]]) -> List[str]:
+    state = ctx.load("RE_STATE.json")
+    for value in (core or []) + (starters or []):
+        safe_path(ctx.root, value)
+    if core is not None:
+        state["core_paths"] = core
+    if starters is not None:
+        state["starter_paths"] = starters
+    if terms is not None:
+        state["content_terms"] = terms
+    ctx.save("RE_STATE.json", state)
+    ctx.log("paths", core_paths=state.get("core_paths"), starter_paths=state.get("starter_paths", []))
+    return ["core_paths=%s starter_paths=%s content_terms=%d" % (state.get("core_paths"), state.get("starter_paths", []), len(state.get("content_terms", [])))]
 
 
 # ---------------------------------------------------------------- CLI
@@ -2319,7 +3167,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         command.add_argument("--base-id")
         return command
 
-    p = add("init", "Start or adopt reverse engineering for a Base (empty folder, existing project or v4 workspace)")
+    p = add("init", "Start or adopt reverse engineering for a Base (empty folder, existing project or existing workspace)")
     p.add_argument("--base-version", default="0.1.0")
     p.add_argument("--code-path", default="")
     p.add_argument("--core-path", action="append", default=None)
@@ -2328,6 +3176,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--target", choices=LEVELS[1:], default="CREATOR_READY")
     p.add_argument("--basis", default="")
     p.add_argument("--agent", default="")
+    p.add_argument("--starter-path", action="append", default=[])
     p = add("parity", "Add or update a capability parity item (history is appended)")
     p.add_argument("action", choices=("add", "set"))
     p.add_argument("--item", required=True)
@@ -2405,9 +3254,29 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--license", default="original_test_content")
     p.add_argument("--core-change", action="append", default=[])
     p.add_argument("--scene", action="append", default=[], help="scene configuration files this probe assembles (PX01 schema)")
-    p = add("present", "Presentation reconstruction: study topics PR01-PR10, experiment checks PX01-PX08, original comparison")
-    p.add_argument("action", choices=("study", "check", "compare"))
-    p.add_argument("--id", default="", help="PR01..PR10 for study, PX01..PX08 for check")
+    p = add("present", "Presentation reconstruction: reference inventory, study PR01-PR13 (Original Pipeline First), frame study, experiment PX01-PX09, comparison")
+    p.add_argument("action", choices=("reference", "study", "frame", "check", "compare"))
+    p.add_argument("--id", default="", help="PR01..PR13 for study, PX01..PX09 for check")
+    p.add_argument("--decision", choices=tuple(DECISIONS))
+    p.add_argument("--relation", choices=BASE_RELATIONS)
+    p.add_argument("--original-method")
+    p.add_argument("--base-method")
+    p.add_argument("--difference")
+    p.add_argument("--deviation-reason")
+    p.add_argument("--deviation-impact")
+    p.add_argument("--modules")
+    p.add_argument("--correct", help="corrected fact; marks downstream verification stale")
+    p.add_argument("--affects", help="downstream implementations that relied on the old conclusion")
+    p.add_argument("--runtime", choices=REFERENCE_RUNTIME)
+    p.add_argument("--assets", choices=REFERENCE_ASSETS)
+    p.add_argument("--scene-types")
+    p.add_argument("--scene", default="")
+    p.add_argument("--mode", choices=("runtime", "source"))
+    p.add_argument("--trace", default="")
+    p.add_argument("--formula", default="")
+    p.add_argument("--layer", action="append", default=[])
+    p.add_argument("--walkthrough", default="")
+    p.add_argument("--asset-source", default="")
     p.add_argument("--level", choices=EVIDENCE_LEVELS)
     p.add_argument("--status", default="")
     p.add_argument("--evidence", action="append", default=[], help="path[:kind] (repeatable)")
@@ -2426,6 +3295,37 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--ui-after", action="append", default=[])
     p.add_argument("--reason", default="")
     p.add_argument("--note", default="")
+    p = add("kit", "Record a creator kit item (paths, or --na with a reason)")
+    p.add_argument("--item", required=True, choices=tuple(KIT_ITEMS))
+    p.add_argument("--path", action="append", default=[])
+    p.add_argument("--na", default="")
+    p = add("first-use", "Check the clean first-use spec, or run it in a clean checkout of HEAD")
+    p.add_argument("action", choices=("check", "run"))
+    p = add("reuse-trial", "Independent Agent reuse trial (start records the core; finish records results)")
+    p.add_argument("action", choices=("start", "finish"))
+    p.add_argument("--agent", default="")
+    p.add_argument("--independence", default="independent_reviewer", choices=REVIEW_MODES[:3])
+    p.add_argument("--docs", default="")
+    p.add_argument("--result", choices=("PASS", "FAIL", "BLOCKED"))
+    p.add_argument("--passed-checks", default="", help="comma list of " + ",".join(TRIAL_CHECKS))
+    p.add_argument("--evidence", action="append", default=[])
+    p.add_argument("--assets", type=int, default=0)
+    p.add_argument("--steps", type=int, default=0)
+    p.add_argument("--manual", action="append", default=[])
+    p.add_argument("--minutes", type=float)
+    p.add_argument("--unverified", action="append", default=[])
+    p.add_argument("--notes", default="")
+    p = add("paths", "Update core, starter and content-term settings used by the decoupling gate")
+    p.add_argument("--core-path", action="append")
+    p.add_argument("--starter-path", action="append")
+    p.add_argument("--content-term", action="append")
+    p = add("stop", "Record a truthful run status (TARGET_REACHED is refused until evidence supports it)")
+    p.add_argument("--status", required=True, choices=RUN_STATUSES)
+    p.add_argument("--reason", default="")
+    p = add("base", "Base versioning: bump to a new version or freeze the current one as a production baseline")
+    p.add_argument("action", choices=("bump", "freeze"))
+    p.add_argument("--version", default="")
+    p.add_argument("--summary", default="")
     p = add("probe-gameplay", "Record a meaningful gameplay change made through configuration or extension interfaces")
     p.add_argument("--id", required=True)
     p.add_argument("--mechanic", required=True)
@@ -2468,6 +3368,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--scope", default="")
     for name, help_text in (("status", "Read-only status"), ("resume", "Read-only resume briefing"),
                             ("next", "Value-ranked next tasks"), ("report", "Write a timestamped capability parity report"),
+                            ("export", "Write the creator handoff contract for game-creation-polish"),
                             ("handoff", "Check handoff completeness"), ("env", "Re-probe this device (local file only)"),
                             ("upgrade", "Add fields of this Skill version to existing records (non-destructive)")):
         add(name, help_text)
@@ -2477,7 +3378,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         if args.command == "init":
             output = init(args.project, args.base_id or "core", args.base_version, args.code_path, args.core_path,
-                          args.reference, args.name, args.target, args.basis, args.agent)
+                          args.reference, args.name, args.target, args.basis, args.agent, args.starter_path)
         elif args.command == "validate":
             errors, warnings = validate(args.project, args.base_id, args.strict_target)
             for line in warnings:
@@ -2533,8 +3434,16 @@ def main(argv: Optional[List[str]] = None) -> int:
                         raise ValueError("present study takes one --evidence per call (history keeps every call)")
                     path, kind = specs[0] if specs else (None, "")
                     output = present_study(ctx, args.id, args.level, path, kind, args.observed, args.local, args.gap,
-                                           split(args.items), args.na_basis,
+                                           split(args.items), args.na_basis, args.decision, args.relation, split(args.modules),
+                                           {"difference": args.difference, "reason": args.deviation_reason, "impact": args.deviation_impact},
+                                           args.correct, split(args.affects),
+                                           original_method=args.original_method, base_method=args.base_method,
                                            **{f: getattr(args, f) for f in STUDY_FIELDS})
+                elif args.action == "reference":
+                    output = present_reference(ctx, args.runtime or "UNKNOWN", args.assets or "UNKNOWN", split(args.scene_types), specs, args.note)
+                elif args.action == "frame":
+                    output = present_frame(ctx, args.scene, args.mode or "", args.trace, args.formula, args.layer, args.walkthrough,
+                                           args.asset_source or "placeholder")
                 elif args.action == "check":
                     swap = None
                     if args.before or args.after or args.ui_before or args.ui_after:
@@ -2542,7 +3451,24 @@ def main(argv: Optional[List[str]] = None) -> int:
                     output = present_check(ctx, args.id, args.status or "PASS", specs, args.bind, args.note,
                                            args.resolution or None, swap)
                 else:
-                    output = present_compare(ctx, args.status, specs, args.reason)
+                    output = present_compare(ctx, args.status, specs, args.reason, args.asset_source)
+            elif args.command == "kit":
+                output = kit_set(ctx, args.item, args.path, args.na)
+            elif args.command == "first-use":
+                output = first_use_run(ctx) if args.action == "run" else (["First-use spec OK"] if not first_use_spec_problems(ctx, ctx.load("FIRST_USE.json")) else ["PROBLEM: " + p for p in first_use_spec_problems(ctx, ctx.load("FIRST_USE.json"))])
+            elif args.command == "reuse-trial":
+                if args.action == "start":
+                    output = trial_start(ctx, args.agent, args.independence, split(args.docs) or [])
+                else:
+                    passed = set(split(args.passed_checks) or [])
+                    output = trial_finish(ctx, args.result or "", {k: k in passed for k in TRIAL_CHECKS}, evidence_specs(args.evidence),
+                                          args.assets, args.steps, args.manual, args.minutes, args.unverified, args.notes)
+            elif args.command == "paths":
+                output = set_paths(ctx, args.core_path, args.starter_path, args.content_term)
+            elif args.command == "stop":
+                output = stop(ctx, args.status, args.reason)
+            elif args.command == "base":
+                output = base_bump(ctx, args.version, args.summary) if args.action == "bump" else base_freeze(ctx)
             elif args.command == "probe-gameplay":
                 output = probe_gameplay(ctx, args.id, args.mechanic, split(args.items) or [], args.config, evidence_specs(args.evidence))
             elif args.command == "probe-loop":
@@ -2575,6 +3501,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 output = [next_report(ctx, 8)]
             elif args.command == "report":
                 output = write_report(ctx)
+            elif args.command == "export":
+                output = export_handoff(ctx)
             elif args.command == "upgrade":
                 output = upgrade(ctx)
             else:

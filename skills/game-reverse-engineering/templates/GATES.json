@@ -1,7 +1,7 @@
 {
   "schema_version": "gre-1.0",
   "tier": "reverse_engineering",
-  "note": "三项权利记录互不替代，也都不由技术测试决定：RE01 第三方代码/组件的复用许可评估；RE03 原作素材与具体表达的使用权（只能由原作权利人授予）；RE02 用户对公开发布的批准（不能替代第三方权利人的授权）。代码来源审查另见 v4 Base 门禁 B02。这些记录都不是法律意见，剩余风险永远不为零。",
+  "note": "三项权利记录互不替代，也都不由技术测试决定：RE01 第三方代码/组件的复用许可评估；RE03 原作素材与具体表达的使用权（只能由原作权利人授予）；RE02 用户对公开发布的批准（不能替代第三方权利人的授权）。这些记录都不是法律意见，剩余风险永远不为零。",
   "gates": [
     {"id": "RE01", "name": "第三方代码与组件复用许可评估", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "self_review", "role": ""}, "subject_revision": "", "evidence": [], "blocker": "", "next_action": "REUSE.json 覆盖参考对象的全部主要模块与依赖，没有 REVIEW 项；KEEP/ADAPT 有许可证据和执行边界，QUARANTINE 已隔离。"},
     {"id": "RE02", "name": "用户公开发布批准", "criteria": "", "status": "UNVERIFIED", "scope_basis": "", "reviewer": {"identity": "", "independence": "external_approval", "role": "user"}, "subject_revision": "", "evidence": [], "blocker": "", "next_action": "只能由用户给出并留存批准记录；它不能代替第三方或原作权利人的授权。"},
