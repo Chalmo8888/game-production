@@ -45,6 +45,8 @@ class RepositoryCheckTest(unittest.TestCase):
             "retired entry point mention": (lambda r: (r / "skills/game-creation-polish/references/X.md").write_text("run scripts/project.py migrate\n", encoding="utf-8"),
                                             "references a retired entry point"),
             "broken link": (lambda r: (r / "README.md").write_text("[gone](skills/missing.md)\n", encoding="utf-8"), "broken link"),
+            "wrong-case link": (lambda r: (r / "README.md").write_text("[gcp](skills/game-creation-polish/skill.md)\n", encoding="utf-8"),
+                                "wrong letter case"),
             "machine path": (lambda r: (r / "README.md").write_text("see C:\\Users\\someone\\proj\n", encoding="utf-8"), "machine-specific path"),
             "secret": (lambda r: (r / "README.md").write_text("token ghp_" + "a1B2" * 9 + "\n", encoding="utf-8"), "secret"),
             "stale manifest": (lambda r: (r / "skills/game-creation-polish/SKILL.md").write_text("edited\n", encoding="utf-8"), "manifest hash mismatch"),

@@ -44,6 +44,7 @@
 ### 仓库
 - 新增 `tools/repo_check.py`（入口数量、退役文件、清单、链接、本机路径与密钥、共享模板、旧入口引用）和 `tests/test_repo.py`（检查器反例、真实 GRE 导出被 GCP 读取的契约测试）。
 - 每个 Skill 有自己的 SHA256SUMS；根目录不再有清单。
+- 发布前收尾：删除与历史提交重复的未跟踪旧副本；根 README 增加“Agent 应该读哪个 Skill”和旧入口的处理方式；`repo_check` 的链接校验改为大小写精确；game-creation-polish 的 G7 描述注明预览版尚未端到端验证。
 
 ## game-reverse-engineering 1.2.0（2026-10-19，Presentation Reconstruction）
 这次是在现有表现规范（PRESENTATION_2D、P1–P8）基础上的深化，没有新建平行流程；数据格式仍是 `gre-1.0`，只做加法。

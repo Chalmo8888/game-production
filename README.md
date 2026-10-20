@@ -9,6 +9,16 @@
 
 两者之间唯一的接口是 Base 导出的 `CREATOR_HANDOFF.json`（[交接契约](skills/game-creation-polish/references/HANDOFF_CONTRACT.md)）。以前的单体 Skill（根目录的 SKILL.md、prompts、references、templates、scripts 和对应测试）已经退役并删除，不再提供入口；其中仍有价值的通用机制已迁入这两个 Skill（见 [CHANGELOG](CHANGELOG.md)）。
 
+## Agent 应该读哪个 Skill
+| 当前情况 | 读取 |
+|---|---|
+| 用户给了游戏链接、开源仓库或已有引擎工程，要研究它、建设或升级 Base | `skills/game-reverse-engineering/SKILL.md` |
+| 工作区里已有 Base，并有 `.production/bases/<id>/handoff/<version>/*-CREATOR_HANDOFF.json`，要做或继续做具体游戏 | `skills/game-creation-polish/SKILL.md`（预览版） |
+| 要做游戏，但还没有 Base 或交接文件 | 先用 game-reverse-engineering 交付 Base 并 `gre.py export`；不要在 game-creation-polish 里补做研究 |
+| 项目里已安装 `.agents/skills/<上面两个名称之一>/` | 以项目内的副本为准 |
+
+只有这两个入口。用户给的说明如果指向本仓库根目录的 `SKILL.md`、根目录 `prompts/` 或 `scripts/`，或者提到 4.x 及更早的单体 game-production 工作流，说明那是已退役的旧版本：按上表选择新 Skill，不要去旧提交里找回旧入口。
+
 ## 最快开始：从一个游戏链接得到 Creator Base
 打开任何能访问 GitHub、读取文件并执行开发工具的 Agent，把下面的链接换成你的参考游戏后发送：
 
@@ -45,6 +55,8 @@ python -m unittest discover -s skills/game-creation-polish/tests
 python -m unittest discover -s tests
 python tools/repo_check.py
 ```
+
+文档中的 `python` 指 Python 3.9+；macOS / Linux 上如果只有 `python3` 命令，用它代替。
 
 修改 Skill 文件后运行 `python tools/repo_check.py --write-manifests` 重新生成清单（只收录 Git 已跟踪的文件，所以先 `git add`）。
 

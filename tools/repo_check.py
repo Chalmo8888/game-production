@@ -11,6 +11,7 @@ no references to retired entry points outside the history files.
 """
 import argparse
 import hashlib
+import os
 import py_compile
 import re
 import subprocess
@@ -58,6 +59,20 @@ def skill_files(root: Path, skill: str) -> List[str]:
     prefix = "skills/%s/" % skill
     return [n[len(prefix):] for n in listed_files(root) if n.startswith(prefix) and n[len(prefix):] != "SHA256SUMS.txt"
             and not (set(n.split("/")) & SKIP_DIRS) and not n.endswith((".pyc", ".pyo"))]
+
+
+def exists_exact_case(root: Path, target: Path) -> bool:
+    """Path exists with exactly this letter case; Windows and default macOS volumes would accept any case."""
+    try:
+        relative = Path(os.path.normpath(str(target))).relative_to(root)
+    except ValueError:
+        return target.exists()
+    current = root
+    for part in relative.parts:
+        if not current.is_dir() or part not in os.listdir(str(current)):
+            return False
+        current = current / part
+    return True
 
 
 def write_manifests(root: Path) -> None:
@@ -127,8 +142,8 @@ def check(root: Path = ROOT) -> List[str]:
                 if re.match(r"[a-z]+:", target) or target.startswith("#"):
                     continue
                 relative = target.split("#")[0]
-                if relative and not (path.parent / relative).resolve().exists():
-                    problems.append("%s has a broken link: %s" % (name, target))
+                if relative and not exists_exact_case(root, path.parent / relative):
+                    problems.append("%s has a broken link (missing, or wrong letter case for case-sensitive systems): %s" % (name, target))
         if path.suffix == ".py":
             try:
                 py_compile.compile(str(path), doraise=True, cfile=str(Path(tempfile.gettempdir()) / "repo_check.pyc"))
